@@ -1,5 +1,4 @@
 import argparse, os
-from asyncio.windows_events import NULL
 import product
 import urllib.request
 import zipfile
