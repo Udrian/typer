@@ -35,6 +35,7 @@ def pack(projectPath, config, outputRoot):
         #addFileToZip(zipObj, "{}/{}.deps.json"         .format(buildPath, projectName), "")
         addFileToZip(zipObj, "{}/{}.dll"               .format(buildPath, projectName), "")
         addFileToZip(zipObj, "{}/{}.exe"               .format(buildPath, projectName), "")
+        addFileToZip(zipObj, "{}/{}.xml"               .format(buildPath, projectName), "")
 
         addExternal(externals, zipObj, buildPath)
         addExternal(externals, zipObj, "{}".format(projectPath))
