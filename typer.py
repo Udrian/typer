@@ -6,7 +6,7 @@ import os.path
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-b',  '--buildNumber',        type=int,  required=True,     help="Build number to append to versioning")
-    parser.add_argument('-o',  '--output',             type=str,  default="..",      help="Output folder")
+    parser.add_argument('-o',  '--output',             type=str,  default="bin",     help="Output folder")
     parser.add_argument('-p',  '--projectPath',        type=str,  required=True,     help="Path to project")
     parser.add_argument('-c',  '--config',             type=str,  default="Release", help="Debug|Release defaults to Release")
     parser.add_argument('-sb', '--skip_building',      type=bool, default=False,     help="Skip building")
@@ -20,27 +20,22 @@ def main():
     
     args = parser.parse_args()
 
-    extraProjectPaths = product.getExtraProjects(args.projectPath)#!!
-    projectPaths = [args.projectPath] + extraProjectPaths#!!
-
     if not args.skip_building:
-        for project in projectPaths:
-            build.build(project, args.buildNumber, args.config, args.output)
+        build.build(args.projectPath, args.buildNumber, args.config, args.output)
     
     if not args.skip_packing:
-        package_project = pack.pack(args.projectPath, args.buildNumber, args.output)
+        package_project = pack.pack(args.projectPath, args.config, args.output)
 
         if not args.skip_uploading:
-            version = product.getVersion(args.projectPath, args.buildNumber)
+            version = product.getVersion(args.projectPath)
             path = "typeo/releases{}{}/{}/{}".format(args.deploy_path_prefix, ("/modules" if product.getModule(args.projectPath) else ""), product.getName(args.projectPath), version)
             upload_package(args.key, args.secret, package_project, path)
-            upload_package(args.key, args.secret, "../{}/product".format(args.projectPath), path)
-            projectName = product.getName(args.projectPath)
-            upload_package(args.key, args.secret, "../{}/ReleaseNotes-{}.txt".format(args.projectPath, projectName), path)
+            upload_package(args.key, args.secret, "{}/product".format(args.projectPath), path)
+            upload_package(args.key, args.secret, "{}/ReleaseNotes-{}.txt".format(args.projectPath, product.getName(args.projectPath)), path)
 
     if not args.skip_tag:
-        version = product.getVersion(args.projectPath, args.buildNumber)
-        print("Tagging git commit with tag {}".format(version))
+        version = "{}.{}".format(product.getVersion(args.projectPath), args.buildNumber)
+        print("Tagging git commit with tag '{}'".format(version))
 
         try:
             subprocess.run(["git", "tag", "-a", "-f", "-m", version, version], check=True)

@@ -4,11 +4,11 @@ import argparse, os
  
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-k', '--key', type=str, required=True, help="Space key")
+    parser.add_argument('-k', '--key',    type=str, required=True, help="Space key")
     parser.add_argument('-s', '--secret', type=str, required=True, help="Space secret")
     parser.add_argument('-b', '--bucket', type=str, required=True, help="Bucket")
-    parser.add_argument('-p', '--path', type=str, required=True, help="Upload path")
-    parser.add_argument('-f', '--file', type=str, required=True, help="Source file")
+    parser.add_argument('-p', '--path',   type=str, required=True, help="Upload path")
+    parser.add_argument('-f', '--file',   type=str, required=True, help="Source file")
     args = parser.parse_args()
 
     upload(args.key, args.secret, args.bucket, args.path, args.file)

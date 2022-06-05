@@ -6,10 +6,10 @@ def loadProduct(projectPath):
         product = json.load(f)
     return product
 
-def getVersion(projectPath, buildNumber):
+def getVersion(projectPath):
     product = loadProduct(projectPath)
 
-    return "{}.{}".format(product["version"], buildNumber)
+    return product["version"]
 
 def getExternals(projectPath):
     product = loadProduct(projectPath)
@@ -22,13 +22,6 @@ def getName(projectPath):
     product = loadProduct(projectPath)
 
     return product["name"]
-
-def getExtraProjects(projectPath):
-    product = loadProduct(projectPath)
-
-    if "extraProjects" in product:
-        return product["extraProjects"]
-    return []
 
 def getModule(projectPath):
     product = loadProduct(projectPath)
