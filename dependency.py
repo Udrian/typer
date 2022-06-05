@@ -30,8 +30,8 @@ def dependency(projectPath):
         if not os.path.isdir(localModulePath):
             print("Downloading '{}'".format(dependency))
 
-            zipName = "{}-v{}.0.zip".format(dependencyName, dependencyVersion)
-            url = "https://typedeaf.nyc3.cdn.digitaloceanspaces.com/typeo/releases/modules/{}/{}.0/{}".format(dependencyName, dependencyVersion, zipName)
+            zipName = "{}-{}.zip".format(dependencyName, dependencyVersion)
+            url = "https://typedeaf.nyc3.cdn.digitaloceanspaces.com/typeo/releases/modules/{}/{}/{}".format(dependencyName, dependencyVersion, zipName)
             localZipPath = "{}/{}".format(localModulePath, zipName)
             
             os.makedirs(localModulePath)
