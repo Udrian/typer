@@ -44,13 +44,13 @@ def dependency(projectPath):
         csProjXML = minidom.parse(csPath)
         itemGroups = csProjXML.getElementsByTagName('ItemGroup')
 
-        moduleItemGroup = NULL
+        moduleItemGroup = 0
         for itemGroup in itemGroups:
             if itemGroup.hasAttribute('Label') and itemGroup.getAttribute('Label') == "TypeOModules":
                 moduleItemGroup = itemGroup
                 break
 
-        if moduleItemGroup == NULL:
+        if moduleItemGroup == 0:
             moduleItemGroup = csProjXML.createElement("ItemGroup")
             moduleItemGroup.setAttribute("Label", "TypeOModules")
 
