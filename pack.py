@@ -28,7 +28,7 @@ def pack(projectPath, config, outputRoot):
 
     os.makedirs(output, exist_ok=True)
     with zipfile.ZipFile(zipfilename, 'w') as zipObj:
-        buildPath = "{}/builds/{}/{}".format(outputRoot, projectName, config)
+        buildPath = "{}/build/{}/{}".format(outputRoot, projectName, config)
         print("Adding project '{}' to zip from '{}'".format(projectName, buildPath))
         
         addFileToZip(zipObj, "{}/{}.runtimeconfig.json".format(buildPath, projectName), "")
@@ -37,8 +37,8 @@ def pack(projectPath, config, outputRoot):
         addFileToZip(zipObj, "{}/{}.exe"               .format(buildPath, projectName), "")
 
         addExternal(externals, zipObj, buildPath)
-        addExternal(buildPath, zipObj, "{}".format(projectPath))
-        addExternal(buildPath, zipObj, "{}/{}".format(projectPath, projectName))
+        addExternal(externals, zipObj, "{}".format(projectPath))
+        addExternal(externals, zipObj, "{}/{}".format(projectPath, projectName))
         
         #Add readme and releasenotes
         print("Adding extra files to zip")
