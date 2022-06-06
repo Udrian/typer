@@ -25,6 +25,7 @@ def dependency(projectPath):
         dependencyName = dependency.split("-")[0]
         dependencyVersion = dependency.split("-")[1]
         localModulePath = "{}/{}/{}".format(modulecachepath, dependencyName, dependencyVersion)
+        localModuleDllPath = "{}/{}.dll".format(localModulePath, dependencyName)
         
         if not os.path.isdir(localModulePath):
             print("Downloading '{}'".format(dependency))
@@ -53,22 +54,20 @@ def dependency(projectPath):
         if moduleItemGroup == 0:
             moduleItemGroup = csProjXML.createElement("ItemGroup")
             moduleItemGroup.setAttribute("Label", "TypeOModules")
+            csProjXML.childNodes[0].appendChild(moduleItemGroup)
 
-        alreadyAdded = False
+        moduleReference = 0
         for reference in moduleItemGroup.getElementsByTagName('Reference'):
             if reference.getAttribute('Include') == dependencyName:
-                alreadyAdded = True
+                moduleReference = reference
                 break
-        if alreadyAdded:
-            continue
         
-        reference = csProjXML.createElement("Reference")
+        if moduleReference == 0:
+            reference = csProjXML.createElement("Reference")
+            moduleItemGroup.appendChild(reference)
         reference.setAttribute("Include", dependencyName)
-        reference.setAttribute("HintPath", "{}/{}.dll".format(localModulePath, dependencyName))
-
-        moduleItemGroup.appendChild(reference)
-        csProjXML.childNodes[0].appendChild(moduleItemGroup)
-
+        reference.setAttribute("HintPath", localModuleDllPath)
+        
         with open(csPath,"w") as fs:
             dom_string = csProjXML.childNodes[0].toprettyxml()
             dom_string = '\n'.join([s for s in dom_string.splitlines() if s.strip()])
