@@ -7,16 +7,18 @@ from xml.dom import minidom
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project to build")
+    parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to project to build")
     args = parser.parse_args()
 
-    dependency(args.projectPath)
+    dependency(args.projectPath, args.cachePath)
 
-def dependency(projectPath):
+def dependency(projectPath, modulecachepath):
     name = product.getName(projectPath)
     dependencies = product.getDependencies(projectPath)
 
-    LOCALAPPDATA = os.getenv('LOCALAPPDATA')
-    modulecachepath = "{}/TypeO/ModulesCache".format(LOCALAPPDATA)
+    if modulecachepath == "":
+        LOCALAPPDATA = os.getenv('LOCALAPPDATA')
+        modulecachepath = "{}/TypeO/ModulesCache".format(LOCALAPPDATA)
     csPath = "{}/{}/{}.csproj".format(projectPath, name, name)
 
     print("Fetching dependencies for '{}'".format(name))
