@@ -1,4 +1,4 @@
-import json
+import json, os
 
 def loadProduct(projectPath):
     path = "{}/product".format(projectPath)
@@ -32,7 +32,26 @@ def getModule(projectPath):
 
 def getDependencies(projectPath):
     product = loadProduct(projectPath)
+    dependencyOverridePath = "{}/dependency_override".format(projectPath)
+    dependencyOverrides = []
+    if os.path.exists(dependencyOverridePath):
+        with open(dependencyOverridePath) as f:
+            dependencyOverrides = json.load(f)
 
+    dependencies = []
     if "dependencies" in product:
-        return product["dependencies"]
-    return []
+        dependencies = product["dependencies"]
+
+    for dependencyOverride in dependencyOverrides:
+        i = 0
+        found = False
+        for dependency in dependencies:
+            if dependency.split("-")[0] == dependencyOverride.split("-")[0]:
+                dependencies[i] = dependencyOverride
+                found = True
+                break
+            i += 1
+        if not found:
+            dependencies.append(dependencyOverride)
+            
+    return dependencies

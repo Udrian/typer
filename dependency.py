@@ -20,20 +20,22 @@ def dependency(projectPath, modulecachepath):
         LOCALAPPDATA = os.getenv('LOCALAPPDATA')
         modulecachepath = "{}/TypeO/ModulesCache".format(LOCALAPPDATA)
     csPath = "{}/{}/{}.csproj".format(projectPath, name, name)
+    slnPath = "{}/{}.sln".format(projectPath, name)
 
     print("Fetching dependencies for '{}'".format(name))
 
     for dependency in dependencies:
         dependencyName = dependency.split("-")[0]
         dependencyVersion = dependency.split("-")[1]
+        dependencyParam = []
         if ";" in dependencyVersion:
-            if "dev" in dependencyVersion.split(";"):
+            dependencyParam = dependencyVersion.split(";")
+            if "dev" in dependencyParam:
                 continue
             dependencyVersion = dependencyVersion.split(";")[0]
         localModulePath = "{}/{}/{}".format(modulecachepath, dependencyName, dependencyVersion)
-        localModuleDllPath = "{}/{}.dll".format(localModulePath, dependencyName)
         
-        if not os.path.isdir(localModulePath):
+        if not os.path.isdir(localModulePath) and "local" not in dependencyParam:
             print("Downloading '{}'".format(dependency))
 
             zipName = "{}-{}.zip".format(dependencyName, dependencyVersion)
@@ -48,6 +50,8 @@ def dependency(projectPath, modulecachepath):
 
             os.remove(localZipPath)
 
+        localModuleDllPath = "{}/{}.dll".format(localModulePath, dependencyName)
+        
         csProjXML = minidom.parse(csPath)
         itemGroups = csProjXML.getElementsByTagName('ItemGroup')
 
@@ -61,19 +65,38 @@ def dependency(projectPath, modulecachepath):
             moduleItemGroup = csProjXML.createElement("ItemGroup")
             moduleItemGroup.setAttribute("Label", "TypeOModules")
             csProjXML.childNodes[0].appendChild(moduleItemGroup)
-
-        moduleReference = 0
+        
+        dontAdd = False
         for reference in moduleItemGroup.getElementsByTagName('Reference'):
             if reference.getAttribute('Include') == dependencyName:
-                moduleReference = reference
+                if reference.getAttribute('HintPath') != localModuleDllPath or "local" in dependencyParam:
+                    moduleItemGroup.removeChild(reference)
+                else:
+                    dontAdd = True
+                break
+        for reference in moduleItemGroup.getElementsByTagName('ProjectReference'):
+            if reference.getAttribute('Name') == dependencyName:
+                if reference.getAttribute('Include') != dependencyVersion or "local" not in dependencyParam:
+                    os.system("dotnet sln {} remove {}".format(slnPath, reference.getAttribute('Include')))
+                    moduleItemGroup.removeChild(reference)
+                else:
+                    dontAdd = True
                 break
         
-        if moduleReference == 0:
+        if dontAdd == True:
+            continue
+
+        if "local" in dependencyParam:
+            reference = csProjXML.createElement("ProjectReference")
+            reference.setAttribute("Name", dependencyName)
+            reference.setAttribute("Include", dependencyVersion)
+            os.system("dotnet sln {} add {}".format(slnPath, dependencyVersion))
+        else:
             reference = csProjXML.createElement("Reference")
-            moduleItemGroup.appendChild(reference)
-        reference.setAttribute("Include", dependencyName)
-        reference.setAttribute("HintPath", localModuleDllPath)
-        
+            reference.setAttribute("Include", dependencyName)
+            reference.setAttribute("HintPath", localModuleDllPath)
+        moduleItemGroup.appendChild(reference)
+
         with open(csPath,"w") as fs:
             dom_string = csProjXML.childNodes[0].toprettyxml()
             dom_string = '\n'.join([s for s in dom_string.splitlines() if s.strip()])
