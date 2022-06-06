@@ -26,6 +26,10 @@ def dependency(projectPath, modulecachepath):
     for dependency in dependencies:
         dependencyName = dependency.split("-")[0]
         dependencyVersion = dependency.split("-")[1]
+        if ";" in dependencyVersion:
+            if "dev" in dependencyVersion.split(";"):
+                continue
+            dependencyVersion = dependencyVersion.split(";")[0]
         localModulePath = "{}/{}/{}".format(modulecachepath, dependencyName, dependencyVersion)
         localModuleDllPath = "{}/{}.dll".format(localModulePath, dependencyName)
         
