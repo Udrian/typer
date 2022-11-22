@@ -1,26 +1,21 @@
-import argparse, os
-import product
-import urllib.request
-import zipfile
+import os, urllib.request, zipfile
 from xml.dom import minidom
+from scripts import product
  
-def main():
-    parser = argparse.ArgumentParser()
+def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project to build")
-    parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to project to build")
-    args = parser.parse_args()
+    parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{LOCALAPPDATA}/TypeO/ModulesCache'")
 
-    dependency(args.projectPath, args.cachePath)
-
-def dependency(projectPath, modulecachepath):
-    name = product.getName(projectPath)
-    dependencies = product.getDependencies(projectPath)
+def do(args):
+    name = product.getName(args.projectPath)
+    dependencies = product.getDependencies(args.projectPath)
+    modulecachepath = args.cachePath
 
     if modulecachepath == "":
         LOCALAPPDATA = os.getenv('LOCALAPPDATA')
         modulecachepath = "{}/TypeO/ModulesCache".format(LOCALAPPDATA)
-    csPath = "{}/{}/{}.csproj".format(projectPath, name, name)
-    slnPath = "{}/{}.sln".format(projectPath, name)
+    csPath = "{}/{}/{}.csproj".format(args.projectPath, name, name)
+    slnPath = "{}/{}.sln".format(args.projectPath, name)
 
     print("Fetching dependencies for '{}'".format(name))
 
@@ -102,6 +97,3 @@ def dependency(projectPath, modulecachepath):
             dom_string = '\n'.join([s for s in dom_string.splitlines() if s.strip()])
             fs.write(dom_string)
             fs.close()
-
-if __name__ == "__main__":
-    main()
