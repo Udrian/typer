@@ -32,10 +32,14 @@ def do(args):
         addFileToZip(zipObj, "{}/{}.exe"               .format(buildPath, projectName), "")
         addFileToZip(zipObj, "{}/{}.xml"               .format(buildPath, projectName), "")
 
+        print("Adding external files to zip")
         addExternal(externals, zipObj, buildPath)
         addExternal(externals, zipObj, "{}".format(args.projectPath))
         addExternal(externals, zipObj, "{}/{}".format(args.projectPath, projectName))
         
+        for external in externals:
+            print("Could not find external file: '{}'".format(external))
+
         #Add readme and releasenotes
         print("Adding extra files to zip")
         addFileToZip(zipObj, "{}/Readme-TypeO.txt".format(args.projectPath), "")
@@ -44,17 +48,19 @@ def do(args):
     return zipfilename
 
 def addExternal(externals, zipObj, path):
-    for external in externals:
+    for external in externals.copy():
         externalPath = "{}/{}".format(path, external)
         if isdir(externalPath):
             print("Checking project external '{}' to zip".format(external))
         
         if isfile(externalPath):
-            addFileToZip(zipObj, "{}".format(externalPath), "")
+            if addFileToZip(zipObj, "{}".format(externalPath), ""):
+                externals.remove(external)
         
         if isdir(externalPath):
             for filename in os.listdir(externalPath):
-                addFileToZip(zipObj, "{}/{}".format(externalPath, filename), "")
+                if addFileToZip(zipObj, "{}/{}".format(externalPath, filename), ""):
+                    externals.remove(external)
 
 def addFileToZip(zipObj, filepath, pathTo):
     if isfile(filepath):
@@ -62,6 +68,8 @@ def addFileToZip(zipObj, filepath, pathTo):
         filepathTo = "./{}/{}".format(pathTo, filename)
         print("... Adding file: {}".format(filepathTo))
         zipObj.write(filepath, filepathTo, zipfile.ZIP_DEFLATED)
+        return True
+    return False
 
 def getOutputPath(output, projectName):
     return "{}/package/{}".format(output, projectName)
