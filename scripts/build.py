@@ -2,7 +2,7 @@ import os, shutil
 from scripts import product
  
 def parse(parser):
-    parser.add_argument('-p', '--projectPath', type=str, required=True,     help="Path to project to build")
+    parser.add_argument('-p', '--projectPath', type=str, required=True,     help="Path to project")
     parser.add_argument('-b', '--buildNumber', type=int, required=True,     help="Build number to append to versioning")
     parser.add_argument('-c', '--config',      type=str, default="Release", help="Debug|Release defaults to Release", choices=["Debug", "Release"])
     parser.add_argument('-o', '--output',      type=str, default="bin",     help="Output folder")

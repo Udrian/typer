@@ -1,4 +1,4 @@
-from scripts import build, pack, upload, dependency
+from scripts import build, pack, upload, dependency, new
 import argparse
 
 def run_command(parser, args):
@@ -10,6 +10,8 @@ def run_command(parser, args):
         upload.do(args)
     elif args.command == 'dependency':
         dependency.do(args)
+    elif args.command == 'new':
+        new.do(args)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,10 +22,11 @@ def main():
         subparser.set_defaults(func=run_command)
         return subparser
 
-    build.     parse(AddParser('build',      "BUILD help text"))
-    pack.      parse(AddParser('pack',       "PACK help text"))
-    upload.    parse(AddParser('upload',     "UPLOAD help text"))
-    dependency.parse(AddParser('dependency', "DEPENDENCY help text"))
+    build.     parse(AddParser('build',      "Builds the specified projects"))
+    pack.      parse(AddParser('pack',       "Packs the specified project to a zip"))
+    upload.    parse(AddParser('upload',     "Upload the specified project"))
+    dependency.parse(AddParser('dependency', "Downloads dependencies for project and add them to the project solution/proj files"))
+    new.       parse(AddParser('new',        "Helper for creating and setting up a new clean project"))
     
     args = parser.parse_args()
     if args.command is not None:

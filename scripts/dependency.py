@@ -3,7 +3,7 @@ from xml.dom import minidom
 from scripts import product
  
 def parse(parser):
-    parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project to build")
+    parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
     parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{LOCALAPPDATA}/TypeO/ModulesCache'")
 
 def do(args):

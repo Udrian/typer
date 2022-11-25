@@ -2,7 +2,7 @@ import boto3, os
 from scripts import product, pack
  
 def parse(parser):
-    parser.add_argument('-p', '--projectPath',        type=str, required=True,                help="Path to project to build")
+    parser.add_argument('-p', '--projectPath',        type=str, required=True,                help="Path to project")
     parser.add_argument('-k', '--key',                type=str, required=True,                help="Space key")
     parser.add_argument('-s', '--secret',             type=str, required=True,                help="Space secret")
     parser.add_argument('-d', '--deploy_path_prefix', type=str,                default="",    help="deploy path configuration prefix")
