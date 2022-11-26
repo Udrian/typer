@@ -117,5 +117,5 @@ def commitAndPushMessage(default):
     if(answer.lower() in ("y", "yes")):
         commitmsg = input("Commit message [{}]".format(default))
         commitmsg = commitmsg or default
-        os.system("git commit -m {}".format(commitmsg))
+        os.system("git commit -m \"{}\"".format(commitmsg))
         os.system("git push")
