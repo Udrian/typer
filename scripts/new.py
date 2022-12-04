@@ -121,7 +121,7 @@ def do(args):
         os.system("git add .")
         commitAndPushMessage("Initial commit", args)
 
-    os.system("./create_project_files.bat")
+    os.system("create_project_files.bat")
     os.system("py typer/typer.py dependency -p .")
 
 def commitAndPushMessage(default, args):
