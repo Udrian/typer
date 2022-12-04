@@ -34,6 +34,8 @@ def load(path):
 def save(xml, path):
     with open(path, "w") as fs:
         dom_string = xml.childNodes[0].toprettyxml()
+        dom_string = dom_string.replace("&amp;", "&")
+
         dom_string = '\n'.join([s for s in dom_string.splitlines() if s.strip()])
         fs.write(dom_string)
         fs.close()
