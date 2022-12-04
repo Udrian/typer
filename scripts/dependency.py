@@ -1,6 +1,5 @@
 import os, urllib.request, zipfile
-from xml.dom import minidom
-from scripts import product
+from scripts import product, xmler
  
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
@@ -47,19 +46,8 @@ def do(args):
 
         localModuleDllPath = "{}/{}.dll".format(localModulePath, dependencyName)
         
-        csProjXML = minidom.parse(csPath)
-        itemGroups = csProjXML.getElementsByTagName('ItemGroup')
-
-        moduleItemGroup = 0
-        for itemGroup in itemGroups:
-            if itemGroup.hasAttribute('Label') and itemGroup.getAttribute('Label') == "TypeOModules":
-                moduleItemGroup = itemGroup
-                break
-
-        if moduleItemGroup == 0:
-            moduleItemGroup = csProjXML.createElement("ItemGroup")
-            moduleItemGroup.setAttribute("Label", "TypeOModules")
-            csProjXML.childNodes[0].appendChild(moduleItemGroup)
+        csProjXML = xmler.load(csPath)
+        moduleItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOModules")
         
         dontAdd = False
         for reference in moduleItemGroup.getElementsByTagName('Reference'):
@@ -92,8 +80,4 @@ def do(args):
             reference.setAttribute("HintPath", localModuleDllPath)
         moduleItemGroup.appendChild(reference)
 
-        with open(csPath,"w") as fs:
-            dom_string = csProjXML.childNodes[0].toprettyxml()
-            dom_string = '\n'.join([s for s in dom_string.splitlines() if s.strip()])
-            fs.write(dom_string)
-            fs.close()
+        xmler.save(csProjXML, csPath)

@@ -1,4 +1,4 @@
-from scripts import build, pack, upload, dependency, new
+from scripts import build, pack, upload, dependency, new, generate
 import argparse
 
 def run_command(parser, args):
@@ -12,6 +12,8 @@ def run_command(parser, args):
         dependency.do(args)
     elif args.command == 'new':
         new.do(args)
+    elif args.command == 'generate':
+        generate.do(args)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -27,6 +29,7 @@ def main():
     upload.    parse(AddParser('upload',     "Upload the specified project"))
     dependency.parse(AddParser('dependency', "Downloads dependencies for project and add them to the project solution/proj files"))
     new.       parse(AddParser('new',        "Helper for creating and setting up a new clean project"))
+    generate.  parse(AddParser('generate',   "Helper for generating Project and Solution"))
     
     args = parser.parse_args()
     if args.command is not None:
