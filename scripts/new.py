@@ -10,7 +10,8 @@ def parse(parser):
     parser.add_argument('-v',  '--version',      type=str,  default="0.1.0",     help="Version of project to set, defaults to 0.1.0")
     parser.add_argument('-d',  '--dependencies', type=str,  default="",          help="List of project dependencies")
     parser.add_argument('-t',  '--type',         type=str,  default="Module",    help="Sets project type, defaults to 'Module'", choices=["Module, Exe"])
-    parser.add_argument(       '--xUnit',                action='store_true', help="Add XUnit Test project")
+    parser.add_argument(       '--xUnit',                   action='store_true', help="Add XUnit Test project")
+    parser.add_argument(       '--clean',                   action='store_true', help="Creates a clean project with no code file template")
 
 def cloneTyper(args):
     if not args.disableGit:
@@ -42,27 +43,19 @@ def addExtraFiles(args):
             "*.csproj"
         ])
 
-    if not os.path.exists("dependency_override"):
-        print("Creating dependency_override")
-        with open("dependency_override", "w") as f:
-            f.write("[\n]")
+    CreateFile("dependency_override", "[\n]")
     
-    if not os.path.exists("product"):
-        print("Creating product")
-        product = {
-            "name": args.name,
-            "version": args.version,
-            "externals": [],
-            "dependencies": args.dependencies.split(),
-            "type" : args.type
-        }
-        with open("product", "w") as f:
-            json.dump(product, f, ensure_ascii=False, indent=4)
+    product = {
+        "name": args.name,
+        "version": args.version,
+        "externals": [],
+        "dependencies": args.dependencies.split(),
+        "type" : args.type
+    }
+    CreateFile("product", json.dumps(product, ensure_ascii=False, indent=4))
 
-    if not os.path.exists("Readme-TypeO.txt"):
-        print("Creating Readme-TypeO.txt")
-        with open("Readme-TypeO.txt", "w") as f:
-            f.write("""Please distribute this file with the TypeO runtime environment:
+    CreateFile("Readme-TypeO.txt",
+"""Please distribute this file with the TypeO runtime environment:
 
 TypeO is available from:
 http://typeo.typedeaf.com/
@@ -70,10 +63,7 @@ http://typeo.typedeaf.com/
 This library is distributed under the terms of the zlib license:
 http://www.zlib.net/zlib_license.html""")
 
-    if not os.path.exists("ReleaseNotes-{}.txt".format(args.name)):
-        print("Creating ReleaseNotes-{}.txt".format(args.name))
-        with open("ReleaseNotes-{}.txt".format(args.name), "w") as f:
-            f.write(
+    CreateFile("ReleaseNotes-{}.txt".format(args.name),
 """*******************************
 ******** RELEASE NOTES ********
 *******************************
@@ -98,16 +88,81 @@ http://www.zlib.net/zlib_license.html""")
 
 """.format(args.version, date.today().day, date.today().month, str(date.today().year)[0:2]))
     
-    if not os.path.exists("create_project_files.bat"):
-        batLine = "py typer/typer.py generate -p ."
-        if args.xUnit:
-            batLine = "{} --xUnit".format(batLine)
-
-        print("Creating create_project_files.bat")
-        with open("create_project_files.bat", "w") as f:
-            f.write(
+    batLine = "py typer/typer.py generate -p ."
+    if args.xUnit:
+        batLine = "{} --xUnit".format(batLine)
+    CreateFile("create_project_files.bat",
 """@ECHO OFF
 {}""".format(batLine))
+
+def createCodeFiles(args):
+    CreateFile("{}/{}Module.cs".format(args.name, args.name),
+"""using TypeOEngine.Typedeaf.Core.Engine;
+namespace {};
+
+/// <summary>
+/// </summary>
+public class {}Module : Module<{}ModuleOption>
+{{
+    /// <inheritdoc/>
+    protected override void Initialize() {{ }}
+
+    /// <inheritdoc/>
+    protected override void Cleanup() {{ }}
+
+    /// <inheritdoc/>
+    protected override void LoadExtensions(TypeO typeO) {{ }}
+}}""".format(args.name, args.name, args.name))
+
+    CreateFile("{}/{}ModuleOption.cs".format(args.name, args.name),
+"""using TypeOEngine.Typedeaf.Core.Engine;
+namespace {};
+
+/// <summary>
+/// </summary>
+public class {}ModuleOption : ModuleOption
+{{
+}}""".format(args.name, args.name))
+
+def createCodeTestFiles(args):
+    testName = "{}Test".format(args.name)
+    CreateFile("{}/{}ModuleTest.cs".format(testName, args.name),
+"""using System.Linq;
+using TypeOEngine.Typedeaf.Core;
+using TypeOEngine.Typedeaf.Core.Engine;
+using {};
+
+namespace {};
+
+public class TestGame : Game
+{{
+    public static string GameName {{ get; set; }} = "test";
+    public override void Initialize() {{}}
+    public override void Update(double dt) {{ Exit(); }}
+    public override void Draw() {{ }}
+    public override void Cleanup() {{ }}
+}}
+
+public class {}
+{{
+    [Fact]
+    public void StartTest()
+    {{
+        var typeO = TypeO.Create<TestGame>(TestGame.GameName)
+                .LoadModule<{}Module>() as TypeO;
+        typeO.Start();
+        var module = typeO.Context.Modules.FirstOrDefault(m => m.GetType() == typeof({}Module)) as {}Module;
+        Assert.NotNull(module);
+        Assert.IsType<{}Module>(module);
+        Assert.NotEmpty(typeO.Context.Modules);
+    }}
+}}""".format(args.name, testName, testName, args.name, args.name, args.name, args.name))
+
+def CreateFile(file, content):
+    if not os.path.exists(file):
+        print("Creating {}".format(file))
+        with open(file, "w") as f:
+            f.write(content)
 
 def do(args):
     projectPath = "{}/{}".format(args.output, args.name.lower())
@@ -117,12 +172,17 @@ def do(args):
     cloneTyper(args)
     addExtraFiles(args)
 
+    os.system("create_project_files.bat")
+    os.system("py typer/typer.py dependency -p .")
+
+    if not args.clean:
+        createCodeFiles(args)
+        if args.xUnit:
+            createCodeTestFiles(args)
+
     if not args.disableGit:
         os.system("git add .")
         commitAndPushMessage("Initial commit", args)
-
-    os.system("create_project_files.bat")
-    os.system("py typer/typer.py dependency -p .")
 
 def commitAndPushMessage(default, args):
     if args.noCommit:

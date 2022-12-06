@@ -3,7 +3,6 @@ from xml.dom import minidom
 def getOrCreateElementWithAttribute(xml, element, name, attribute, value):
     return getOrCreateElementWithAttributes(xml, element, name, [{"name": attribute, "value": value}])
 
-
 def getOrCreateElementWithAttributes(xml, element, name, attributes):
     retEl = 0
     for itemGroup in element.getElementsByTagName(name):
@@ -24,6 +23,17 @@ def getOrCreateElementWithAttributes(xml, element, name, attributes):
         else:
             element.appendChild(retEl)
     return retEl
+
+def createElement(xml, element, name, content):
+    retEl = xml.createElement(name)
+    
+    txt = xml.createTextNode(content)
+    retEl.appendChild(txt)
+
+    if xml == element:
+        element.childNodes[0].appendChild(retEl)
+    else:
+        element.appendChild(retEl)
 
 def add(xml, element):
     xml.childNodes[0].appendChild(element)
