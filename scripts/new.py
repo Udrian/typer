@@ -158,6 +158,8 @@ public class {}
     }}
 }}""".format(args.name, testName, testName, args.name, args.name, args.name, args.name))
 
+    CreateFile("{}/Usings.cs".format(testName), "global using Xunit;")
+
 def CreateFile(file, content):
     if not os.path.exists(file):
         print("Creating {}".format(file))
