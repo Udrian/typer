@@ -3,7 +3,7 @@ from scripts import product, xmler
  
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
-    parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{LOCALAPPDATA}/TypeO/ModulesCache'")
+    parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
 
 def do(args):
     name = product.getName(args.projectPath)
@@ -11,29 +11,22 @@ def do(args):
     modulecachepath = args.cachePath
 
     if modulecachepath == "":
-        LOCALAPPDATA = os.getenv('LOCALAPPDATA')
-        modulecachepath = "{}/TypeO/ModulesCache".format(LOCALAPPDATA)
+        modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('LOCALAPPDATA'))
     csPath = "{}/{}/{}.csproj".format(args.projectPath, name, name)
     slnPath = "{}/{}.sln".format(args.projectPath, name)
 
     print("Fetching dependencies for '{}'".format(name))
 
     for dependency in dependencies:
-        dependencyName = dependency.split("-")[0]
-        dependencyVersion = dependency.split("-")[1]
-        dependencyParam = []
-        if ";" in dependencyVersion:
-            dependencyParam = dependencyVersion.split(";")
-            if "dev" in dependencyParam:
-                continue
-            dependencyVersion = dependencyVersion.split(";")[0]
-        localModulePath = "{}/{}/{}".format(modulecachepath, dependencyName, dependencyVersion)
+        if dependency.dev:
+            continue
+        localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
         
-        if not os.path.isdir(localModulePath) and "local" not in dependencyParam:
+        if not os.path.isdir(localModulePath) and not dependency.local:
             print("Downloading '{}'".format(dependency))
 
-            zipName = "{}-{}.zip".format(dependencyName, dependencyVersion)
-            url = "https://typedeaf.nyc3.cdn.digitaloceanspaces.com/typeo/releases/modules/{}/{}/{}".format(dependencyName, dependencyVersion, zipName)
+            zipName = "{}-{}.zip".format(dependency.name, dependency.version)
+            url = "https://typedeaf.nyc3.cdn.digitaloceanspaces.com/typeo/releases/modules/{}/{}/{}".format(dependency.name, dependency.version, zipName)
             localZipPath = "{}/{}".format(localModulePath, zipName)
             
             os.makedirs(localModulePath)
@@ -44,22 +37,22 @@ def do(args):
 
             os.remove(localZipPath)
 
-        localModuleDllPath = "{}/{}.dll".format(localModulePath, dependencyName)
+        localModuleDllPath = "{}/{}.dll".format(localModulePath, dependency.name)
         
         csProjXML = xmler.load(csPath)
         moduleItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOModules")
         
         dontAdd = False
         for reference in moduleItemGroup.getElementsByTagName('Reference'):
-            if reference.getAttribute('Include') == dependencyName:
-                if reference.getAttribute('HintPath') != localModuleDllPath or "local" in dependencyParam:
+            if reference.getAttribute('Include') == dependency.name:
+                if reference.getAttribute('HintPath') != localModuleDllPath or dependency.local:
                     moduleItemGroup.removeChild(reference)
                 else:
                     dontAdd = True
                 break
         for reference in moduleItemGroup.getElementsByTagName('ProjectReference'):
-            if reference.getAttribute('Name') == dependencyName:
-                if reference.getAttribute('Include') != dependencyVersion or "local" not in dependencyParam:
+            if reference.getAttribute('Name') == dependency.name:
+                if reference.getAttribute('Include') != dependency.version or not dependency.local:
                     os.system("dotnet sln {} remove {}".format(slnPath, reference.getAttribute('Include')))
                     moduleItemGroup.removeChild(reference)
                 else:
@@ -69,14 +62,14 @@ def do(args):
         if dontAdd == True:
             continue
 
-        if "local" in dependencyParam:
+        if dependency.local:
             reference = csProjXML.createElement("ProjectReference")
-            reference.setAttribute("Name", dependencyName)
-            reference.setAttribute("Include", dependencyVersion)
-            os.system("dotnet sln {} add {}".format(slnPath, dependencyVersion))
+            reference.setAttribute("Name", dependency.name)
+            reference.setAttribute("Include", dependency.version)
+            os.system("dotnet sln {} add {}".format(slnPath, dependency.version))
         else:
             reference = csProjXML.createElement("Reference")
-            reference.setAttribute("Include", dependencyName)
+            reference.setAttribute("Include", dependency.name)
             reference.setAttribute("HintPath", localModuleDllPath)
         moduleItemGroup.appendChild(reference)
 

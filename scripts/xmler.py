@@ -1,5 +1,23 @@
 from xml.dom import minidom
 
+def getElementWithName(element, name):
+    return element.getElementsByTagName(name)[0]
+
+def getOrCreateElementWithValue(xml, element, name, content):
+    retEl = 0
+    for itemGroup in element.getElementsByTagName(name):
+        if itemGroup.firstChild.data == content:
+            retEl = itemGroup
+            break
+    if retEl == 0:
+        createElement(xml, element, name, content)
+    return retEl
+
+def setElementWithValue(element, name, content):
+    for itemGroup in element.getElementsByTagName(name):
+        itemGroup.firstChild.data = content
+
+
 def getOrCreateElementWithAttribute(xml, element, name, attribute, value):
     return getOrCreateElementWithAttributes(xml, element, name, [{"name": attribute, "value": value}])
 

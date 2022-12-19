@@ -30,6 +30,26 @@ def getModule(projectPath):
         return product["type"] == "Module" or product["type"] == "TypeDModule"
     return True
 
+class Dependency:
+    name = ""
+    version = ""
+    local = False
+    dev = False
+    Params = []
+
+    def __init__(self, dependencyString):
+        self.name = dependencyString.split("-")[0]
+        self.version = dependencyString.split("-")[1]
+        self.Params = []
+        if ";" in self.version:
+            params = self.version.split(";")
+            self.Params = params[1:]
+            if "dev" in self.Params:
+                self.dev = True
+            if "local" in self.Params:
+                self.local = True
+            self.version = params[0]
+
 def getDependencies(projectPath):
     product = loadProduct(projectPath)
     dependencyOverridePath = "{}/dependency_override".format(projectPath)
@@ -38,20 +58,24 @@ def getDependencies(projectPath):
         with open(dependencyOverridePath) as f:
             dependencyOverrides = json.load(f)
 
-    dependencies = []
+    dependencyStrings = []
     if "dependencies" in product:
-        dependencies = product["dependencies"]
+        dependencyStrings = product["dependencies"]
 
     for dependencyOverride in dependencyOverrides:
         i = 0
         found = False
-        for dependency in dependencies:
+        for dependency in dependencyStrings:
             if dependency.split("-")[0] == dependencyOverride.split("-")[0]:
-                dependencies[i] = dependencyOverride
+                dependencyStrings[i] = dependencyOverride
                 found = True
                 break
             i += 1
         if not found:
-            dependencies.append(dependencyOverride)
+            dependencyStrings.append(dependencyOverride)
             
+    dependencies = []
+    for dependency in dependencyStrings:
+        dependencies.append(Dependency(dependency))
+
     return dependencies

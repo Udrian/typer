@@ -12,6 +12,7 @@ def parse(parser):
     parser.add_argument('-t',  '--type',         type=str,  default="Module",    help="Sets project type, defaults to 'Module'", choices=["Module, Exe"])
     parser.add_argument(       '--xUnit',                   action='store_true', help="Add XUnit Test project")
     parser.add_argument(       '--clean',                   action='store_true', help="Creates a clean project with no code file template")
+    parser.add_argument(       '--dev',                     action='store_true', help="Also create a TypeD Dev module")
 
 def cloneTyper(args):
     if not args.disableGit:
@@ -44,6 +45,12 @@ def addExtraFiles(args):
         ])
 
     CreateFile("dependency_override", "[\n]")
+    
+    dependencies = args.dependencies.split()
+    if len(dependencies) == 0:
+        dependencies.append("TypeOCore-0.1.0")
+        if args.dev:
+            dependencies.append("TypeD-0.1.0;dev")
     
     product = {
         "name": args.name,
@@ -91,6 +98,8 @@ http://www.zlib.net/zlib_license.html""")
     batLine = "py typer/typer.py generate -p ."
     if args.xUnit:
         batLine = "{} --xUnit".format(batLine)
+    if args.dev:
+        batLine = "{} --dev".format(batLine)
     CreateFile("create_project_files.bat",
 """@ECHO OFF
 {}""".format(batLine))
