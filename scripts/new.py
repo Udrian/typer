@@ -56,7 +56,7 @@ def addExtraFiles(args):
         "name": args.name,
         "version": args.version,
         "externals": [],
-        "dependencies": args.dependencies.split(),
+        "dependencies": dependencies,
         "type" : args.type
     }
     CreateFile("product", json.dumps(product, ensure_ascii=False, indent=4))
@@ -159,6 +159,7 @@ public class {}
     {{
         var typeO = TypeO.Create<TestGame>(TestGame.GameName)
                 .LoadModule<{}Module>() as TypeO;
+        Assert.NotNull(typeO);
         typeO.Start();
         var module = typeO.Context.Modules.FirstOrDefault(m => m.GetType() == typeof({}Module)) as {}Module;
         Assert.NotNull(module);

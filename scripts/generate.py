@@ -49,25 +49,25 @@ def createProjectAndSolution(name, args):
         if not testFileFound:
             os.remove(testFile)
 
-        csProjTestXML = xmler.load(csTestProjFile)
-        itemGroupTypeOModulesEl = xmler.getOrCreateElementWithAttribute(csProjTestXML, csProjTestXML, "ItemGroup", "Label", "TypeOModules")
-        referenceEl = xmler.getOrCreateElementWithAttribute(csProjTestXML, itemGroupTypeOModulesEl, "Reference", "Include", "TypeOCore")
-        xmler.createElement(csProjTestXML, referenceEl, "HintPath", "..\{}\$(OutDir)TypeOCore.dll".format(name))
-        xmler.save(csProjTestXML, csTestProjFile)
-
     os.system("dotnet sln {} add {}".format(slnFile, csProjFile))
     if args.dev:
         os.system("dotnet sln {} add {}".format(slnFile, csTypeDProjFile))
     if args.xUnit:
         os.system("dotnet sln {} add {}".format(slnFile, csTestProjFile))
 
-def addPreBuildEvents(csProjXML):
+def addPreBuildEvents(csProjXML, args):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[
         {"name": "Name",          "value": "PreBuild"},
         {"name": "BeforeTargets", "value": "PreBuildEvent"},
         {"name": "Condition",     "value": "'$(OS)' == 'Windows_NT'"}
     ])
-    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;$(ProjectDir)../typer/typer.py dependency -p $(ProjectDir)../&quot;")
+    batLine = "$(ProjectDir)../typer/typer.py dependency -p $(ProjectDir)../"
+    if args.xUnit:
+        batLine = "{} --xUnit".format(batLine)
+    if args.dev:
+        batLine = "{} --dev".format(batLine)
+
+    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;{}&quot;".format(batLine))
     xmler.add(csProjXML, target)
 
 def do(args):
@@ -77,5 +77,5 @@ def do(args):
     createProjectAndSolution(name, args)
 
     csProjXML = xmler.load(csPath)
-    addPreBuildEvents(csProjXML)
+    addPreBuildEvents(csProjXML, args)
     xmler.save(csProjXML, csPath)
