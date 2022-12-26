@@ -8,20 +8,19 @@ def parse(parser):
     parser.add_argument(       '--xUnit',      action='store_true',     help="Update XUnit Test project")
 
 def do(args):
-    name = product.getName(args.projectPath)
-    testName = "{}Test".format(name)
-    typeDName = "TypeD{}".format(name)
-    dependencies = product.getDependencies(args.projectPath)
+    project = product.load(args.projectPath)
+    testName = "{}Test".format(project.name)
+    typeDName = "TypeD{}".format(project.name)
     modulecachepath = args.cachePath
 
     if modulecachepath == "":
         modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('LOCALAPPDATA'))
-    csPath = "{}/{}/{}.csproj".format(args.projectPath, name, name)
-    slnPath = "{}/{}.sln".format(args.projectPath, name)
+    csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
+    slnPath = "{}/{}.sln".format(args.projectPath, project.name)
 
-    print("Fetching dependencies for '{}'".format(name))
+    print("Fetching dependencies for '{}'".format(project.name))
 
-    for dependency in dependencies:
+    for dependency in project.dependencies:
         if not args.dev and dependency.dev:
             continue
         localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)

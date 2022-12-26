@@ -9,14 +9,13 @@ def parse(parser):
     parser.add_argument('-o', '--output',             type=str,                default="bin", help="Output folder")
 
 def do(args):
-    version = product.getVersion(args.projectPath)
-    projectName = product.getName(args.projectPath)
-    package_project = pack.getZipPathName(pack.getOutputPath(args.output, projectName), projectName, version)
+    project = product.load(args.projectPath)
+    package_project = pack.getZipPathName(pack.getOutputPath(args.output, project.name), project.name, project.version)
 
-    path = "typeo/releases{}{}/{}/{}".format(args.deploy_path_prefix, ("/modules" if product.getModule(args.projectPath) else ""), projectName, version)
+    path = "typeo/releases{}{}/{}/{}".format(args.deploy_path_prefix, ("/modules" if product.getModule(args.projectPath) else ""), project.name, project.version)
     upload_package(args.key, args.secret, package_project, path)
     upload_package(args.key, args.secret, "{}/product".format(args.projectPath), path)
-    upload_package(args.key, args.secret, "{}/ReleaseNotes-{}.txt".format(args.projectPath, projectName), path)
+    upload_package(args.key, args.secret, "{}/ReleaseNotes-{}.txt".format(args.projectPath, project.name), path)
 
 def upload_package(key, secret, package, dir):
     path = "{}/{}".format(dir, os.path.basename(package))

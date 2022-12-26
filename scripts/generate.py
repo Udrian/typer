@@ -71,10 +71,10 @@ def addPreBuildEvents(csProjXML, args):
     xmler.add(csProjXML, target)
 
 def do(args):
-    name = product.getName(args.projectPath)
-    csPath = "{}/{}/{}.csproj".format(args.projectPath, name, name)
+    project = product.load(args.projectPath)
+    csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
     os.chdir(args.projectPath)
-    createProjectAndSolution(name, args)
+    createProjectAndSolution(project.name, args)
 
     csProjXML = xmler.load(csPath)
     addPreBuildEvents(csProjXML, args)

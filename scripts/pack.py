@@ -9,41 +9,39 @@ def parse(parser):
     parser.add_argument('-o', '--output',      type=str, default="bin",     help="Output folder")
 
 def do(args):
-    projectName = product.getName(args.projectPath)
-    version = product.getVersion(args.projectPath)
-    externals = product.getExternals(args.projectPath)
+    project = product.load(args.projectPath)
     
-    output = getOutputPath(args.output, projectName)
-    print("Packing '{}' version '{}' to output path '{}'".format(projectName, version, output))
+    output = getOutputPath(args.output, project.name)
+    print("Packing '{}' version '{}' to output path '{}'".format(project.name, project.version, output))
 
     print("Externals:")
-    print(externals)
+    print(project.externals)
 
-    zipfilename = getZipPathName(output, projectName, version)
+    zipfilename = getZipPathName(output, project.name, project.version)
 
     os.makedirs(output, exist_ok=True)
     with zipfile.ZipFile(zipfilename, 'w') as zipObj:
-        buildPath = "{}/build/{}/{}".format(args.output, projectName, args.config)
-        print("Adding project '{}' to zip from '{}'".format(projectName, buildPath))
+        buildPath = "{}/build/{}/{}".format(args.output, project.name, args.config)
+        print("Adding project '{}' to zip from '{}'".format(project.name, buildPath))
         
-        addFileToZip(zipObj, "{}/{}.runtimeconfig.json".format(buildPath, projectName), "")
-        #addFileToZip(zipObj, "{}/{}.deps.json"         .format(buildPath, projectName), "")
-        addFileToZip(zipObj, "{}/{}.dll"               .format(buildPath, projectName), "")
-        addFileToZip(zipObj, "{}/{}.exe"               .format(buildPath, projectName), "")
-        addFileToZip(zipObj, "{}/{}.xml"               .format(buildPath, projectName), "")
+        addFileToZip(zipObj, "{}/{}.runtimeconfig.json".format(buildPath, project.name), "")
+        #addFileToZip(zipObj, "{}/{}.deps.json"         .format(buildPath, project.name), "")
+        addFileToZip(zipObj, "{}/{}.dll"               .format(buildPath, project.name), "")
+        addFileToZip(zipObj, "{}/{}.exe"               .format(buildPath, project.name), "")
+        addFileToZip(zipObj, "{}/{}.xml"               .format(buildPath, project.name), "")
 
         print("Adding external files to zip")
-        addExternal(externals, zipObj, buildPath)
-        addExternal(externals, zipObj, "{}".format(args.projectPath))
-        addExternal(externals, zipObj, "{}/{}".format(args.projectPath, projectName))
+        addExternal(project.externals, zipObj, buildPath)
+        addExternal(project.externals, zipObj, "{}".format(args.projectPath))
+        addExternal(project.externals, zipObj, "{}/{}".format(args.projectPath, project.name))
         
-        for external in externals:
+        for external in project.externals:
             print("Could not find external file: '{}'".format(external))
 
         #Add readme and releasenotes
         print("Adding extra files to zip")
         addFileToZip(zipObj, "{}/Readme-TypeO.txt".format(args.projectPath), "")
-        addFileToZip(zipObj, "{}/ReleaseNotes-{}.txt".format(args.projectPath, projectName), "")
+        addFileToZip(zipObj, "{}/ReleaseNotes-{}.txt".format(args.projectPath, project.name), "")
         addFileToZip(zipObj, "{}/product".format(args.projectPath), "")
     return zipfilename
 

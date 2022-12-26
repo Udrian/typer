@@ -59,6 +59,8 @@ def addExtraFiles(args):
         "dependencies": dependencies,
         "type" : args.type
     }
+    if args.dev:
+        product["devModule"] = "TypeD{}".format(args.name)
     CreateFile("product", json.dumps(product, ensure_ascii=False, indent=4))
 
     CreateFileFromTemplate("Readme-TypeO.txt", "templates/Readme-TypeO.template", {})
