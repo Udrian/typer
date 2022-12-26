@@ -1,0 +1,16 @@
+using TypeD;
+using TypeD.Models.Data;
+
+namespace {{typeDName}};
+
+/// <summary>
+/// </summary>
+public class {{typeDName}}Initializer : TypeDModuleInitializer
+{
+    // Functions
+    /// <inheritdoc/>
+    public override void Initializer(Project project) { }
+
+    /// <inheritdoc/>
+    public override void Uninitializer() { }
+}

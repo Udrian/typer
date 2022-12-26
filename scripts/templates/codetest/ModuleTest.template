@@ -1,0 +1,30 @@
+using TypeOEngine.Typedeaf.Core;
+using TypeOEngine.Typedeaf.Core.Engine;
+using {{name}};
+
+namespace {{testName}};
+
+public class TestGame : Game
+{
+    public static string GameName { get; set; } = "test";
+    public override void Initialize() { }
+    public override void Update(double dt) { Exit(); }
+    public override void Draw() { }
+    public override void Cleanup() { }
+}
+
+public class {{name}}ModuleTest
+{
+    [Fact]
+    public void StartTest()
+    {
+        var typeO = TypeO.Create<TestGame>(TestGame.GameName)
+                .LoadModule<{{name}}Module>() as TypeO;
+        Assert.NotNull(typeO);
+        typeO.Start();
+        var module = typeO.Context.Modules.FirstOrDefault(m => m.GetType() == typeof({{name}}Module)) as {{name}}Module;
+        Assert.NotNull(module);
+        Assert.IsType<{{name}}Module>(module);
+        Assert.NotEmpty(typeO.Context.Modules);
+    }
+}

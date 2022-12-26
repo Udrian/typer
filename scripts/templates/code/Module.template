@@ -1,0 +1,17 @@
+using TypeOEngine.Typedeaf.Core.Engine;
+
+namespace {{name}};
+
+/// <summary>
+/// </summary>
+public class {{name}}Module : Module<{{name}}ModuleOption>
+{
+    /// <inheritdoc/>
+    protected override void Initialize() { }
+
+    /// <inheritdoc/>
+    protected override void Cleanup() { }
+
+    /// <inheritdoc/>
+    protected override void LoadExtensions(TypeO typeO) { }
+}

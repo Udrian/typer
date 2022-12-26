@@ -1,0 +1,9 @@
+using TypeOEngine.Typedeaf.Core.Engine;
+
+namespace {{name}};
+
+/// <summary>
+/// </summary>
+public class {{name}}ModuleOption : ModuleOption
+{
+}

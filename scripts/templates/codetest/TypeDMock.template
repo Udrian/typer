@@ -1,0 +1,100 @@
+using TypeD.Models.Data;
+using TypeD.Models.Interfaces;
+
+namespace {{testName}};
+
+internal class HookModelMock : IHookModel
+{
+    public void AddHook(string hook, Action<object> action)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void AddHook<T>(Action<T> action) where T : Hook, new()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void ClearHooks()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Init(IResourceModel resourceModel)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveHook(string hook)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveHook(string hook, Action<object> action)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveHook<T>() where T : Hook, new()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveHook<T>(Action<T> action) where T : Hook, new()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Shoot(string hook, object param)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Shoot<T>(T hook) where T : Hook, new()
+    {
+        throw new NotImplementedException();
+    }
+}
+
+internal class ResourceModelMock : IResourceModel
+{
+    public void Add(List<object> values)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Add(object value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Add(string key, object value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Add(List<Tuple<string, object>> keyValues)
+    {
+        throw new NotImplementedException();
+    }
+
+    public T Get<T>(string key) where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public T Get<T>() where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Init(IResourceModel resourceModel)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Remove(string key)
+    {
+        throw new NotImplementedException();
+    }
+}

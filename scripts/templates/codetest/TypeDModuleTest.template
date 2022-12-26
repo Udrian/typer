@@ -1,0 +1,27 @@
+using {{typeDName}};
+using System.Reflection;
+
+namespace {{testName}};
+
+public class {{typeDName}}ModuleTest
+{
+    private {{typeDName}}Initializer CreateInitializer()
+    {
+        var initializer = new {{typeDName}}Initializer();
+
+        Type t = initializer.GetType();
+        t.InvokeMember("Hooks", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetProperty | BindingFlags.Instance, null, initializer, new object[] { new HookModelMock() });
+        t.InvokeMember("Resources", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetProperty | BindingFlags.Instance, null, initializer, new object[] { new ResourceModelMock() });
+
+        return initializer;
+    }
+
+    [Fact]
+    public void StartTest()
+    {
+        var initializer = CreateInitializer();
+        Assert.NotNull(initializer);
+        initializer.Initializer(null);
+        initializer.Uninitializer();
+    }
+}
