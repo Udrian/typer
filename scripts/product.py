@@ -6,9 +6,11 @@ class Product:
     externals = []
     type = ""
     isModule = True
-    isDev = False
-    devModule = ""
+    haveDevModule = False
+    devModuleName = ""
     dependencies = []
+    haveTest = False
+    testName = ""
 
     def __init__(self, product, projectPath):
         self.version = product["version"]
@@ -19,9 +21,12 @@ class Product:
         if "type" in product:
             self.type = product["type"]
             self.isModule = self.type == "Module"
-        if "devModule" in product and product["devModule"] != "":
-            self.isDev = True
-            self.devModule = product["devModule"]
+        if "devModuleName" in product and product["devModuleName"] != "":
+            self.haveDevModule = True
+            self.devModuleName = product["devModuleName"]
+        if "testName" in product and product["testName"] != "":
+            self.haveTest = True
+            self.testName = product["testName"]
 
         dependencyOverridePath = "{}/dependency_override".format(projectPath)
         dependencyOverrides = []

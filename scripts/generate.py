@@ -3,29 +3,25 @@ from scripts import product, xmler
 
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True,       help="Path to project")
-    parser.add_argument(       '--xUnit',                action='store_true', help="Add XUnit Test project")
-    parser.add_argument(       '--dev',                  action='store_true', help="Also create a TypeD Dev module")
 
-def createProjectAndSolution(name, args):
-    testName = "{}Test".format(name)
-    typeDName = "TypeD{}".format(name)
-    csProjFile = "{}/{}.csproj".format(name, name)
-    csTestProjFile = "{}/{}.csproj".format(testName, testName)
-    csTypeDProjFile = "{}/{}.csproj".format(typeDName, typeDName)
-    slnFile = "{}.sln".format(name)
+def createProjectAndSolution(project):
+    csProjFile = "{}/{}.csproj".format(project.name, project.name)
+    csTestProjFile = "{}/{}.csproj".format(project.testName, project.testName)
+    csTypeDProjFile = "{}/{}.csproj".format(project.devModuleName, project.devModuleName)
+    slnFile = "{}.sln".format(project.name)
 
-    os.system("dotnet new sln --name {}".format(name))
-    os.system("dotnet new classlib --name {}".format(name))
-    if os.path.exists("{}/Class1.cs".format(name)):
-        os.remove("{}/Class1.cs".format(name))
-    if args.dev:
-        os.system("dotnet new wpflib --name {}".format(typeDName))
-        if os.path.exists("{}/Class1.cs".format(typeDName)):
-            os.remove("{}/Class1.cs".format(typeDName))
+    os.system("dotnet new sln --name {}".format(project.name))
+    os.system("dotnet new classlib --name {}".format(project.name))
+    if os.path.exists("{}/Class1.cs".format(project.name)):
+        os.remove("{}/Class1.cs".format(project.name))
+    if project.haveDevModule:
+        os.system("dotnet new wpflib --name {}".format(project.devModuleName))
+        if os.path.exists("{}/Class1.cs".format(project.devModuleName)):
+            os.remove("{}/Class1.cs".format(project.devModuleName))
     
-    if args.xUnit:
-        testFile = "{}/UnitTest1.cs".format(testName)
-        testUsingFile = "{}/Usings.cs".format(testName)
+    if project.haveTest:
+        testFile = "{}/UnitTest1.cs".format(project.testName)
+        testUsingFile = "{}/Usings.cs".format(project.testName)
         testUsingFileTemp = "{}_temp".format(testUsingFile)
         testUsingFileExisted = False
         testFileFound = False
@@ -34,9 +30,9 @@ def createProjectAndSolution(name, args):
         if os.path.exists(testUsingFile):
             testUsingFileExisted = True
             os.rename(testUsingFile, testUsingFileTemp)
-        os.system("dotnet new xunit --name {}".format(testName))
+        os.system("dotnet new xunit --name {}".format(project.testName))
         os.system("dotnet add {} reference {}".format(csTestProjFile, csProjFile))
-        if args.dev:
+        if project.haveDevModule:
             csProjTestXML = xmler.load(csTestProjFile)
             propertyGroup = xmler.getElementWithName(csProjTestXML, "PropertyGroup")
             xmler.setElementWithValue(propertyGroup, "TargetFramework", "{}-windows".format(xmler.getElementWithName(propertyGroup, "TargetFramework").firstChild.data))
@@ -50,32 +46,27 @@ def createProjectAndSolution(name, args):
             os.remove(testFile)
 
     os.system("dotnet sln {} add {}".format(slnFile, csProjFile))
-    if args.dev:
+    if project.haveDevModule:
         os.system("dotnet sln {} add {}".format(slnFile, csTypeDProjFile))
-    if args.xUnit:
+    if project.haveTest:
         os.system("dotnet sln {} add {}".format(slnFile, csTestProjFile))
 
-def addPreBuildEvents(csProjXML, args):
+def addPreBuildEvents(csProjXML):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[
         {"name": "Name",          "value": "PreBuild"},
         {"name": "BeforeTargets", "value": "PreBuildEvent"},
         {"name": "Condition",     "value": "'$(OS)' == 'Windows_NT'"}
     ])
-    batLine = "$(ProjectDir)../typer/typer.py dependency -p $(ProjectDir)../"
-    if args.xUnit:
-        batLine = "{} --xUnit".format(batLine)
-    if args.dev:
-        batLine = "{} --dev".format(batLine)
 
-    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;{}&quot;".format(batLine))
+    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;$(ProjectDir)../typer/typer.py dependency -p $(ProjectDir)../&quot;")
     xmler.add(csProjXML, target)
 
 def do(args):
     project = product.load(args.projectPath)
     csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
     os.chdir(args.projectPath)
-    createProjectAndSolution(project.name, args)
+    createProjectAndSolution(project)
 
     csProjXML = xmler.load(csPath)
-    addPreBuildEvents(csProjXML, args)
+    addPreBuildEvents(csProjXML)
     xmler.save(csProjXML, csPath)

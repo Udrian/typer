@@ -4,13 +4,9 @@ from scripts import product, xmler
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
     parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
-    parser.add_argument(       '--dev',        action='store_true',     help="Also update TypeD Dev module")
-    parser.add_argument(       '--xUnit',      action='store_true',     help="Update XUnit Test project")
 
 def do(args):
     project = product.load(args.projectPath)
-    testName = "{}Test".format(project.name)
-    typeDName = "TypeD{}".format(project.name)
     modulecachepath = args.cachePath
 
     if modulecachepath == "":
@@ -21,7 +17,7 @@ def do(args):
     print("Fetching dependencies for '{}'".format(project.name))
 
     for dependency in project.dependencies:
-        if not args.dev and dependency.dev:
+        if not project.haveDevModule and dependency.dev:
             continue
         localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
         
@@ -46,16 +42,16 @@ def do(args):
         if manipulateProject(csProjXML, slnPath, localModuleDllPath, dependency, False):
             xmler.save(csProjXML, csPath)
 
-        if args.dev:
-            csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, typeDName, typeDName)
+        if project.haveDevModule:
+            csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, project.devModuleName, project.devModuleName)
             csTypeDProjXML = xmler.load(csTypeDPath)
             if manipulateProject(csTypeDProjXML, slnPath, localModuleDllPath, dependency, True):
                 xmler.save(csTypeDProjXML, csTypeDPath)
 
-        if args.xUnit:
-            csTestPath = "{}/{}/{}.csproj".format(args.projectPath, testName, testName)
+        if project.haveTest:
+            csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
             csTestProjXML = xmler.load(csTestPath)
-            if manipulateProject(csTestProjXML, slnPath, localModuleDllPath, dependency, args.dev):
+            if manipulateProject(csTestProjXML, slnPath, localModuleDllPath, dependency, project.haveDevModule):
                 xmler.save(csTestProjXML, csTestPath)
         
 

@@ -1,2 +1,2 @@
 @ECHO OFF
-{{command}}
+py typer/typer.py generate -p .

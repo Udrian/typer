@@ -1,13 +1,13 @@
-using {{typeDName}};
+using {{devModuleName}};
 using System.Reflection;
 
 namespace {{testName}};
 
-public class {{typeDName}}ModuleTest
+public class {{devModuleName}}ModuleTest
 {
-    private {{typeDName}}Initializer CreateInitializer()
+    private {{devModuleName}}Initializer CreateInitializer()
     {
-        var initializer = new {{typeDName}}Initializer();
+        var initializer = new {{devModuleName}}Initializer();
 
         Type t = initializer.GetType();
         t.InvokeMember("Hooks", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetProperty | BindingFlags.Instance, null, initializer, new object[] { new HookModelMock() });

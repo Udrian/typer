@@ -1,18 +1,21 @@
 import os, json
 from datetime import date
+from scripts import product
 
 def parse(parser):
-    parser.add_argument('-n',  '--name',         type=str,  required=True,       help="New project name")
-    parser.add_argument('-o',  '--output',       type=str,  required=True,       help="Output folder")
-    parser.add_argument('-g',  '--git',          type=str,                       help="Existing git link to project")
+    parser.add_argument('-n',  '--name',          type=str, required=True,       help="New project name")
+    parser.add_argument('-o',  '--output',        type=str, required=True,       help="Output folder")
+    parser.add_argument('-g',  '--git',           type=str,                      help="Existing git link to project")
     parser.add_argument(       '--disableGit',              action='store_true', help="Disables the use of git")
     parser.add_argument(       '--noCommit',                action='store_true', help="Do not ask for git commit input")
-    parser.add_argument('-v',  '--version',      type=str,  default="0.1.0",     help="Version of project to set, defaults to 0.1.0")
-    parser.add_argument('-d',  '--dependencies', type=str,  default="",          help="List of project dependencies")
-    parser.add_argument('-t',  '--type',         type=str,  default="Module",    help="Sets project type, defaults to 'Module'", choices=["Module, Exe"])
-    parser.add_argument(       '--xUnit',                   action='store_true', help="Add XUnit Test project")
+    parser.add_argument('-v',  '--version',       type=str, default="0.1.0",     help="Version of project to set, defaults to 0.1.0")
+    parser.add_argument('-d',  '--dependencies',  type=str, default="",          help="List of project dependencies")
+    parser.add_argument('-t',  '--type',          type=str, default="Module",    help="Sets project type, defaults to 'Module'", choices=["Module, Exe"])
     parser.add_argument(       '--clean',                   action='store_true', help="Creates a clean project with no code file template")
-    parser.add_argument(       '--dev',                     action='store_true', help="Also create a TypeD Dev module")
+    parser.add_argument(       '--test',                    action='store_true', help="Add XUnit Test project")
+    parser.add_argument(       '--testName',      type=str, default="",          help="Name for Test project")
+    parser.add_argument(       '--dev',                     action='store_true', help="Add a TypeD Dev module")
+    parser.add_argument(       '--devModuleName', type=str, default="",          help="Name for TypeD Dev module")
 
 def cloneTyper(args):
     if not args.disableGit:
@@ -60,7 +63,15 @@ def addExtraFiles(args):
         "type" : args.type
     }
     if args.dev:
-        product["devModule"] = "TypeD{}".format(args.name)
+        if args.devModuleName == "":
+            product["devModuleName"] = "TypeD{}".format(args.name)
+        else:
+            product["devModuleName"] = args.devModuleName
+    if args.test:
+        if args.testName == "":
+            product["testName"] = "{}Test".format(args.name)
+        else:
+            product["testName"] = args.testName
     CreateFile("product", json.dumps(product, ensure_ascii=False, indent=4))
 
     CreateFileFromTemplate("Readme-TypeO.txt", "templates/Readme-TypeO.template", {})
@@ -72,50 +83,38 @@ def addExtraFiles(args):
         "year": str(date.today().year)[0:2]
     })
     
-    batLine = "py typer/typer.py generate -p ."
-    if args.xUnit:
-        batLine = "{} --xUnit".format(batLine)
-    if args.dev:
-        batLine = "{} --dev".format(batLine)
-    CreateFileFromTemplate("create_project_files.bat", "templates/create_project_files.template", {
-        "command": batLine
+    CreateFileFromTemplate("create_project_files.bat", "templates/create_project_files.template", {})
+
+def createCodeFiles(project):
+    CreateFileFromTemplate("{}/{}Module.cs".format(project.name, project.name), "templates/code/Module.template", {
+        "name": project.name
     })
 
-def createCodeFiles(args):
-    CreateFileFromTemplate("{}/{}Module.cs".format(args.name, args.name), "templates/code/Module.template", {
-        "name": args.name
+    CreateFileFromTemplate("{}/{}ModuleOption.cs".format(project.name, project.name), "templates/code/ModuleOption.template", {
+        "name": project.name
     })
 
-    CreateFileFromTemplate("{}/{}ModuleOption.cs".format(args.name, args.name), "templates/code/ModuleOption.template", {
-        "name": args.name
+def createCodeTestFiles(project):
+    CreateFileFromTemplate("{}/{}ModuleTest.cs".format(project.testName, project.name), "templates/codetest/ModuleTest.template", {
+        "name":     project.name,
+        "testName": project.testName
     })
 
-def createCodeTestFiles(args):
-    testName = "{}Test".format(args.name)
-    CreateFileFromTemplate("{}/{}ModuleTest.cs".format(testName, args.name), "templates/codetest/ModuleTest.template", {
-        "name":     args.name,
-        "testName": testName
+    CreateFileFromTemplate("{}/Usings.cs".format(project.testName), "templates/codetest/Usings.template", {})
+
+def createCodeTypeDTestFiles(project):
+    CreateFileFromTemplate("{}/TypeDMock.cs".format(project.testName), "templates/codetest/TypeDMock.template", {
+        "testName": project.testName
     })
 
-    CreateFileFromTemplate("{}/Usings.cs".format(testName), "templates/codetest/Usings.template", {})
-
-def createCodeTypeDTestFiles(args):
-    testName = "{}Test".format(args.name)
-    typeDName = "TypeD{}".format(args.name)
-
-    CreateFileFromTemplate("{}/TypeDMock.cs".format(testName), "templates/codetest/TypeDMock.template", {
-        "testName": testName
+    CreateFileFromTemplate("{}/{}ModuleTest.cs".format(project.testName, project.devModuleName), "templates/codetest/TypeDModuleTest.template", {
+        "testName": project.testName,
+        "devModuleName": project.devModuleName
     })
 
-    CreateFileFromTemplate("{}/{}ModuleTest.cs".format(testName, typeDName), "templates/codetest/TypeDModuleTest.template", {
-        "testName": testName,
-        "typeDName": typeDName
-    })
-
-def createCodeTypeDFiles(args):
-    typeDName = "TypeD{}".format(args.name)
-    CreateFileFromTemplate("{}/{}Initializer.cs".format(typeDName, typeDName), "templates/codetyped/Initializer.template", {
-        "typeDName": typeDName
+def createCodeTypeDFiles(project):
+    CreateFileFromTemplate("{}/{}Initializer.cs".format(project.devModuleName, project.devModuleName), "templates/codetyped/Initializer.template", {
+        "devModuleName": project.devModuleName
     })
 
 def CreateFile(file, content):
@@ -150,13 +149,14 @@ def do(args):
     os.system("py typer/typer.py dependency -p .")
 
     if not args.clean:
-        createCodeFiles(args)
+        project = product.load(projectPath)
+        createCodeFiles(project)
         if args.dev:
-            createCodeTypeDFiles(args)
-        if args.xUnit:
-            createCodeTestFiles(args)
+            createCodeTypeDFiles(project)
+        if args.test:
+            createCodeTestFiles(project)
             if args.dev:
-                createCodeTypeDTestFiles(args)
+                createCodeTypeDTestFiles(project)
 
     if not args.disableGit:
         os.system("git add .")

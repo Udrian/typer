@@ -1,11 +1,11 @@
 using TypeD;
 using TypeD.Models.Data;
 
-namespace {{typeDName}};
+namespace {{devModuleName}};
 
 /// <summary>
 /// </summary>
-public class {{typeDName}}Initializer : TypeDModuleInitializer
+public class {{devModuleName}}Initializer : TypeDModuleInitializer
 {
     // Functions
     /// <inheritdoc/>
