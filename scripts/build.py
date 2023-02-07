@@ -10,11 +10,16 @@ def parse(parser):
 def do(args):
     project = product.load(args.projectPath)
 
-    output = "{}/build/{}/{}".format(args.output, project.name, args.config)
-    print("Building '{}' '{}' '{}' to output '{}'".format(project.name, args.config, "{}.{}".format(project.version, args.buildNumber), output))
+    build(project.name, args.output, args.config, args.buildNumber, project.version, args.projectPath)
+    if project.haveDevModule:
+        build(project.devModuleName, args.output, args.config, args.buildNumber, project.version, args.projectPath)
 
-    csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
+def build(name, output, config, buildNumber, version, projectPath):
+    output = "{}/build/{}/{}".format(output, name, config)
+    print("Building '{}' '{}' '{}' to output '{}'".format(name, config, "{}.{}".format(version, buildNumber), output))
+
+    csPath = "{}/{}/{}.csproj".format(projectPath, name, name)
 
     if os.path.exists(output):
         shutil.rmtree(output)
-    os.system("dotnet publish {} --configuration {} --output {} --verbosity n /property:Version={}".format(csPath, args.config, output, "{}.{}".format(project.version, args.buildNumber)))
+    os.system("dotnet publish {} --configuration {} --output {} --verbosity n /property:Version={}".format(csPath, config, output, "{}.{}".format(version, buildNumber)))
