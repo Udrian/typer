@@ -64,7 +64,7 @@ def addExtraFiles(args):
     }
     if args.dev:
         if args.devModuleName == "":
-            product["devModuleName"] = "TypeD{}".format(args.name)
+            product["devModuleName"] = "TypeD{}".format(args.name.removeprefix("TypeO"))
         else:
             product["devModuleName"] = args.devModuleName
     if args.test:
