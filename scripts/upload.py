@@ -10,14 +10,17 @@ def parse(parser):
 
 def do(args):
     project = product.load(args.projectPath)
-    package_project = pack.getZipPathName(pack.getOutputPath(args.output, project.name), project.name, project.version)
+    projectPackage = pack.getZipPathName(pack.getOutputPath(args.output, project.name), project.name, project.version)
 
-    path = "typeo/releases{}{}/{}/{}".format(args.deploy_path_prefix, ("/modules" if product.getModule(args.projectPath) else ""), project.name, project.version)
-    upload_package(args.key, args.secret, package_project, path)
-    upload_package(args.key, args.secret, "{}/product".format(args.projectPath), path)
-    upload_package(args.key, args.secret, "{}/ReleaseNotes-{}.txt".format(args.projectPath, project.name), path)
+    path = "typeo/releases{}{}/{}/{}".format(args.deploy_path_prefix, ("/modules" if project.isModule else ""), project.name, project.version)
+    uploadPackage(args.key, args.secret, projectPackage, path)
+    if project.haveDevModule:
+        projectPackageDev = pack.getZipPathName(pack.getOutputPath(args.output, project.name), project.devModuleName, project.version)
+        uploadPackage(args.key, args.secret, projectPackageDev, path)
+    uploadPackage(args.key, args.secret, "{}/product".format(args.projectPath), path)
+    uploadPackage(args.key, args.secret, "{}/ReleaseNotes-{}.txt".format(args.projectPath, project.name), path)
 
-def upload_package(key, secret, package, dir):
+def uploadPackage(key, secret, package, dir):
     path = "{}/{}".format(dir, os.path.basename(package))
 
     upload(key, secret, "typedeaf", path, package)
