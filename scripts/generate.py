@@ -18,6 +18,7 @@ def createProjectAndSolution(project):
         os.system("dotnet new wpflib --name {}".format(project.devModuleName))
         if os.path.exists("{}/Class1.cs".format(project.devModuleName)):
             os.remove("{}/Class1.cs".format(project.devModuleName))
+        os.system("dotnet add {} reference {}".format(csTypeDProjFile, csProjFile))
     
     if project.haveTest:
         testFile = "{}/UnitTest1.cs".format(project.testName)
