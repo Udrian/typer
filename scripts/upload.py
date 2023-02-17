@@ -14,9 +14,6 @@ def do(args):
 
     path = "typeo/releases{}{}/{}/{}".format(args.deploy_path_prefix, ("/modules" if project.isModule else ""), project.name, project.version)
     uploadPackage(args.key, args.secret, projectPackage, path)
-    if project.haveDevModule:
-        projectPackageDev = pack.getZipPathName(pack.getOutputPath(args.output, project.name), project.devModuleName, project.version)
-        uploadPackage(args.key, args.secret, projectPackageDev, path)
     uploadPackage(args.key, args.secret, "{}/product".format(args.projectPath), path)
     uploadPackage(args.key, args.secret, "{}/ReleaseNotes-{}.txt".format(args.projectPath, project.name), path)
 

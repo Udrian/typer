@@ -13,8 +13,6 @@ def do(args):
     
     output = getOutputPath(args.output, project.name)
     pack(project.name, output, project, args)
-    if project.haveDevModule:
-        pack(project.devModuleName, output, project, args)
 
 def pack(name, output, project, args):
     print("Packing '{}' version '{}' to output path '{}'".format(name, project.version, output))
@@ -34,6 +32,17 @@ def pack(name, output, project, args):
         addFileToZip(zipObj, "{}/{}.dll"               .format(buildPath, name), "")
         addFileToZip(zipObj, "{}/{}.exe"               .format(buildPath, name), "")
         addFileToZip(zipObj, "{}/{}.xml"               .format(buildPath, name), "")
+
+        if project.haveDevModule:
+            print("Add Dev Module to zip")
+            buildPathDev = "{}/build/{}/{}".format(args.output, project.devModuleName, args.config)
+
+            addFileToZip(zipObj, "{}/{}.runtimeconfig.json".format(buildPathDev, project.devModuleName), "")
+            #addFileToZip(zipObj, "{}/{}.deps.json"         .format(buildPathDev, project.devModuleName), "")
+            addFileToZip(zipObj, "{}/{}.dll"               .format(buildPathDev, project.devModuleName), "")
+            addFileToZip(zipObj, "{}/{}.exe"               .format(buildPathDev, project.devModuleName), "")
+            addFileToZip(zipObj, "{}/{}.xml"               .format(buildPathDev, project.devModuleName), "")
+
 
         print("Adding external files to zip")
         addExternal(project.externals, zipObj, buildPath)
