@@ -71,7 +71,7 @@ def addPreBuildEvents(csProjXML):
         {"name": "Condition",     "value": "'$(OS)' == 'Windows_NT'"}
     ])
 
-    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;$(ProjectDir)../typer/typer.py dependency -p $(ProjectDir)../&quot;")
+    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;")
     xmler.add(csProjXML, target)
 
 def do(args):
