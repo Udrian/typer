@@ -5,9 +5,9 @@ def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True,       help="Path to project")
 
 def createProjectAndSolution(project):
-    csProjFile = "{}\{}.csproj".format(project.name, project.name)
-    csTestProjFile = "{}\{}.csproj".format(project.testName, project.testName)
-    csTypeDProjFile = "{}\{}.csproj".format(project.devModuleName, project.devModuleName)
+    csProjFile = "{}/{}.csproj".format(project.name, project.name)
+    csTestProjFile = "{}/{}.csproj".format(project.testName, project.testName)
+    csTypeDProjFile = "{}/{}.csproj".format(project.devModuleName, project.devModuleName)
     slnFile = "{}.sln".format(project.name)
 
     if not os.path.exists(slnFile):

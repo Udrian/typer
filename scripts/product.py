@@ -58,13 +58,15 @@ class Product:
 
 class Dependency:
     name = ""
+    author = ""
     version = ""
     local = False
     dev = False
     Params = []
 
     def __init__(self, dependencyString):
-        self.name = dependencyString.split("-")[0]
+        self.author = dependencyString.split("-")[0].split("@")[0]
+        self.name = dependencyString.split("-")[0].split("@")[1]
         self.version = dependencyString.split("-")[1]
         self.Params = []
         if ";" in self.version:
