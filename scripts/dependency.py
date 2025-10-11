@@ -24,7 +24,7 @@ def do(args):
         if not os.path.isdir(localModulePath) and not dependency.local:
             print("Downloading '{}-{}'".format(dependency.name, dependency.version))
 
-            zipName = "{}-{}.zip".format(dependency.name, dependency.version)
+            zipName = "{}.zip".format(dependency.version)
             url = "https://github.com/{}/{}/archive/refs/tags/{}".format(dependency.author, dependency.name, zipName)
             localZipPath = "{}/{}".format(localModulePath, zipName)
             
@@ -34,7 +34,7 @@ def do(args):
             with zipfile.ZipFile(localZipPath, 'r') as zip_ref:
                 zip_ref.extractall(localModulePath)
 
-            extractedDir = "{}/{}-{}-{}".format(localModulePath, dependency.name.lower(), dependency.name, dependency.version)
+            extractedDir = "{}/{}-{}".format(localModulePath, dependency.name.lower(), dependency.version)
             files = os.listdir(extractedDir)
             for file in files:
                 shutil.move(os.path.join(extractedDir, file), localModulePath)
