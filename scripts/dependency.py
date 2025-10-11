@@ -43,6 +43,10 @@ def do(args):
             os.removedirs(extractedDir)
 
             os.system("git clone https://github.com/Udrian/typer.git {}/typer".format(localModulePath))
+            oldcwd = os.getcwd()
+            os.chdir(localModulePath)
+            os.system("create_project_files.bat")
+            os.chdir(oldcwd)
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
         
