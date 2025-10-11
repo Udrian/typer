@@ -41,6 +41,8 @@ def do(args):
 
             os.remove(localZipPath)
             os.removedirs(extractedDir)
+
+            os.system("git clone https://github.com/Udrian/typer.git {}/typer".format(localModulePath))
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
         
