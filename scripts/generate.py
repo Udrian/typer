@@ -67,11 +67,18 @@ def createProjectAndSolution(project):
 def addPreBuildEvents(csProjXML):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[
         {"name": "Name",          "value": "PreBuild"},
-        {"name": "BeforeTargets", "value": "PreBuildEvent"},
-        {"name": "Condition",     "value": "'$(OS)' == 'Windows_NT'"}
+        {"name": "BeforeTargets", "value": "PreBuildEvent"}
     ])
 
-    xmler.getOrCreateElementWithAttribute(csProjXML, target, "Exec", "Command", "cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;")
+    xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
+        {"name": "Condition", "value": "!$([MSBuild]::IsOSUnixLike())"},
+        {"name": "Command",   "value": "cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;"}
+    ])
+    xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
+        {"name": "Condition", "value": "$([MSBuild]::IsOSUnixLike())"},
+        {"name": "Command",   "value": "bash &quot;$(ProjectDir)../typer/typer.sh&quot; dependency -p &quot;$(ProjectDir)../&quot;"}
+    ])
+
     xmler.add(csProjXML, target)
 
 def do(args):

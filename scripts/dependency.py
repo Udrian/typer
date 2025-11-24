@@ -10,7 +10,10 @@ def do(args):
     modulecachepath = args.cachePath
 
     if modulecachepath == "":
-        modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('LOCALAPPDATA'))
+        if os.name == 'nt':
+            modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('LOCALAPPDATA'))
+        else:
+            modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('HOME'))
     csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
     slnPath = "{}/{}.sln".format(args.projectPath, project.name)
 

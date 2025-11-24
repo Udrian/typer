@@ -51,9 +51,9 @@ def addExtraFiles(args):
     
     dependencies = args.dependencies.split()
     if len(dependencies) == 0:
-        dependencies.append("TypeOCore-0.1.0")
+        dependencies.append("Udrian@TypeOCore-0.1.0")
         if args.dev:
-            dependencies.append("TypeD-0.1.0;dev")
+            dependencies.append("Udrian@TypeD-0.1.0;dev")
     
     product = {
         "name": args.name,
@@ -83,7 +83,8 @@ def addExtraFiles(args):
         "year": str(date.today().year)[0:2]
     })
     
-    CreateFileFromTemplate("create_project_files.bat", "templates/create_project_files.template", {})
+    CreateFileFromTemplate("create_project_files.bat", "templates/create_project_files_bat.template", {})
+    CreateFileFromTemplate("create_project_files.sh", "templates/create_project_files_bash.template", {})
 
 def createCodeFiles(project):
     CreateFileFromTemplate("{}/{}Module.cs".format(project.name, project.name), "templates/code/Module.template", {

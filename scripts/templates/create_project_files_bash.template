@@ -1,2 +1,3 @@
-@ECHO OFF
+#!/bin/bash
+
 py typer/typer.py generate -p .
