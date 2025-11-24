@@ -146,8 +146,12 @@ def do(args):
     cloneTyper(args)
     addExtraFiles(args)
 
-    os.system("create_project_files.bat")
-    os.system("py typer/typer.py dependency -p .")
+    if os.name == 'nt':
+        os.system("./create_project_files.bat")
+        os.system("./typer/typer.bat dependency -p .")
+    else:
+        os.system("bash ./create_project_files.sh")
+        os.system("bash ./typer/typer.sh dependency -p .")
 
     if not args.clean:
         project = product.load(projectPath)
