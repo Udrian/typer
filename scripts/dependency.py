@@ -48,7 +48,10 @@ def do(args):
             os.system("git clone https://github.com/Udrian/typer.git {}/typer".format(localModulePath))
             oldcwd = os.getcwd()
             os.chdir(localModulePath)
-            os.system("create_project_files.bat")
+            if os.name == 'nt':
+                os.system("./create_project_files.bat")
+            else:
+                os.system("bash ./create_project_files.sh")
             os.chdir(oldcwd)
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
