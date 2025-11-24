@@ -81,6 +81,10 @@ def addPreBuildEvents(csProjXML):
 
     xmler.add(csProjXML, target)
 
+def addDefaultVar(csProjXML):
+    propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
+    xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
+
 def do(args):
     project = product.load(args.projectPath)
     csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
@@ -88,5 +92,6 @@ def do(args):
     createProjectAndSolution(project)
 
     csProjXML = xmler.load(csPath)
+    addDefaultVar(csProjXML)
     addPreBuildEvents(csProjXML)
     xmler.save(csProjXML, csPath)

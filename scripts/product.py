@@ -62,11 +62,15 @@ class Dependency:
     version = ""
     local = False
     dev = False
+    nuget = False
     Params = []
 
     def __init__(self, dependencyString):
-        self.author = dependencyString.split("-")[0].split("@")[0]
-        self.name = dependencyString.split("-")[0].split("@")[1]
+        if("@" in dependencyString):
+            self.author = dependencyString.split("-")[0].split("@")[0]
+            self.name = dependencyString.split("-")[0].split("@")[1]
+        else:
+            self.name = dependencyString.split("-")[0]
         self.version = dependencyString.split("-")[1]
         self.Params = []
         if ";" in self.version:
@@ -76,6 +80,8 @@ class Dependency:
                 self.dev = True
             if "local" in self.Params:
                 self.local = True
+            if "nuget" in self.Params:
+                self.nuget = True
             self.version = params[0]
 
 def load(projectPath):

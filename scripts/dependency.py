@@ -24,7 +24,7 @@ def do(args):
             continue
         localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
         
-        if not os.path.isdir(localModulePath) and not dependency.local:
+        if not os.path.isdir(localModulePath) and not dependency.local and not dependency.nuget:
             print("Downloading '{}-{}'".format(dependency.name, dependency.version))
 
             zipName = "{}.zip".format(dependency.version)
@@ -74,6 +74,10 @@ def do(args):
         
 
 def manipulateProject(csProjXML, slnPath, localModuleProjectPath, dependency, dev):
+    if dependency.nuget:
+        os.system("dotnet add package {} -v {}".format(dependency.name, dependency.version))
+        return True
+
     if not dev and dependency.dev:
         return False
     moduleItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOModules")
