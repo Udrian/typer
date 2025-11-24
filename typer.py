@@ -1,4 +1,4 @@
-from scripts import build, pack, upload, dependency, new, generate, install, list
+from scripts import build, pack, upload, dependency, new, generate, list
 import argparse
 
 def run_command(parser, args):
@@ -14,8 +14,6 @@ def run_command(parser, args):
         new.do(args)
     elif args.command == 'generate':
         generate.do(args)
-    elif args.command == 'install':
-        install.do(args)
     elif args.command == 'list':
         list.do(args)
 
@@ -34,7 +32,6 @@ def main():
     dependency.parse(AddParser('dependency', "Downloads dependencies for project and add them to the project solution/proj files"))
     new.       parse(AddParser('new',        "Helper for creating and setting up a new clean project"))
     generate.  parse(AddParser('generate',   "Helper for generating Project and Solution"))
-    install.   parse(AddParser('install',    "Sets Typer to path"))
     list.      parse(AddParser('list',       "List all versions for a module"))
     
     args = parser.parse_args()
