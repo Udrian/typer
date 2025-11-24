@@ -3,6 +3,14 @@ from xml.dom import minidom
 def getElementWithName(element, name):
     return element.getElementsByTagName(name)[0]
 
+def getElementWithNameAndNoAttribute(element, name):
+    retEl = 0
+    for itemGroup in element.getElementsByTagName(name):
+        if not itemGroup.hasAttributes():
+            retEl = itemGroup
+            break
+    return retEl
+
 def getOrCreateElementWithValue(xml, element, name, content):
     retEl = 0
     for itemGroup in element.getElementsByTagName(name):
@@ -16,7 +24,6 @@ def getOrCreateElementWithValue(xml, element, name, content):
 def setElementWithValue(element, name, content):
     for itemGroup in element.getElementsByTagName(name):
         itemGroup.firstChild.data = content
-
 
 def getOrCreateElementWithAttribute(xml, element, name, attribute, value):
     return getOrCreateElementWithAttributes(xml, element, name, [{"name": attribute, "value": value}])

@@ -3,7 +3,10 @@ from scripts import product, xmler
  
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
-    parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
+    if os.name == 'nt':
+        parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
+    else:
+        parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{HOME}}/TypeO/ModulesCache'")
 
 def do(args):
     project = product.load(args.projectPath)
@@ -57,26 +60,36 @@ def do(args):
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
         
         csProjXML = xmler.load(csPath)
-        if manipulateProject(csProjXML, slnPath, localModuleProjectPath, dependency, False):
+        if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, False):
             xmler.save(csProjXML, csPath)
 
         if project.haveDevModule:
             csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, project.devModuleName, project.devModuleName)
             csTypeDProjXML = xmler.load(csTypeDPath)
-            if manipulateProject(csTypeDProjXML, slnPath, localModuleProjectPath, dependency, True):
+            if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleProjectPath, dependency, True):
                 xmler.save(csTypeDProjXML, csTypeDPath)
 
         if project.haveTest:
             csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
             csTestProjXML = xmler.load(csTestPath)
-            if manipulateProject(csTestProjXML, slnPath, localModuleProjectPath, dependency, project.haveDevModule):
+            if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule):
                 xmler.save(csTestProjXML, csTestPath)
         
 
-def manipulateProject(csProjXML, slnPath, localModuleProjectPath, dependency, dev):
+def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev):
     if dependency.nuget:
-        os.system("dotnet add package {} -v {}".format(dependency.name, dependency.version))
-        return True
+        nugetItemGroup = xmler.getElementWithNameAndNoAttribute(csProjXML, "ItemGroup")
+
+        dontAdd = False
+        if nugetItemGroup != 0:
+            for nuget in nugetItemGroup.getElementsByTagName('PackageReference'):
+                if nuget.getAttribute('Include') == dependency.name and nuget.getAttribute('Version') == dependency.version:
+                    dontAdd = True
+                    break
+
+        if not dontAdd:
+            os.system("dotnet add {} package {} -v {}".format(csPath, dependency.name, dependency.version))
+        return False
 
     if not dev and dependency.dev:
         return False
