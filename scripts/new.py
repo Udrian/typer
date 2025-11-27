@@ -85,6 +85,9 @@ def addExtraFiles(args):
     
     CreateFileFromTemplate("create_project_files.bat", "templates/create_project_files_bat.template", {})
     CreateFileFromTemplate("create_project_files.sh", "templates/create_project_files_bash.template", {})
+    
+    CreateFileFromTemplate("upload_version.bat", "templates/upload_version_bat.template", {})
+    CreateFileFromTemplate("upload_version.sh", "templates/upload_version_bash.template", {})
 
 def createCodeFiles(project):
     CreateFileFromTemplate("{}/{}Module.cs".format(project.name, project.name), "templates/code/Module.template", {
