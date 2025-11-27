@@ -1,3 +1,3 @@
 @ECHO OFF
 
-./typer/typer.bat generate -p .
+./typer/typer.bat generate -p %~dp0
