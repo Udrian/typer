@@ -86,6 +86,9 @@ def addPreBuildEvents(csProjXML):
     xmler.add(csProjXML, target)
 
 def addExternals(csProjXML, project):
+    if not project.externals:
+        return
+
     contentItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOContent")
     
     for external in project.externals:
