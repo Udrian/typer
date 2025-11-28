@@ -75,24 +75,30 @@ def do(args):
             if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule):
                 xmler.save(csTestProjXML, csTestPath)
         
-
 def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev):
     if dependency.nuget:
-        nugetItemGroup = xmler.getElementWithNameAndNoAttribute(csProjXML, "ItemGroup")
-
-        dontAdd = False
-        if nugetItemGroup != 0:
-            for nuget in nugetItemGroup.getElementsByTagName('PackageReference'):
-                if nuget.getAttribute('Include') == dependency.name and nuget.getAttribute('Version') == dependency.version:
-                    dontAdd = True
-                    break
-
-        if not dontAdd:
-            os.system("dotnet add {} package {} -v {}".format(csPath, dependency.name, dependency.version))
+        resolveNuget(csProjXML, csPath, dependency)
         return False
 
     if not dev and dependency.dev:
         return False
+    
+    return resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency)
+
+def resolveNuget(csProjXML, csPath, dependency):
+    nugetItemGroup = xmler.getElementWithNameAndNoAttribute(csProjXML, "ItemGroup")
+
+    dontAdd = False
+    if nugetItemGroup != 0:
+        for nuget in nugetItemGroup.getElementsByTagName('PackageReference'):
+            if nuget.getAttribute('Include') == dependency.name and nuget.getAttribute('Version') == dependency.version:
+                dontAdd = True
+                break
+
+    if not dontAdd:
+        os.system("dotnet add {} package {} -v {}".format(csPath, dependency.name, dependency.version))
+
+def resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency):
     moduleItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOModules")
         
     dontAdd = False
@@ -107,7 +113,6 @@ def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, depend
     
     if dontAdd == True:
         return False
-
 
     reference = csProjXML.createElement("ProjectReference")
     reference.setAttribute("Name", dependency.name)

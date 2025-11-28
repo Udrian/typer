@@ -64,6 +64,10 @@ def createProjectAndSolution(project):
         if not cmd.exist("dotnet sln {} list".format(slnFile), csTestProjFile):
             cmd.exec("dotnet sln {} add {}".format(slnFile, csTestProjFile))
 
+def addDefaultVar(csProjXML):
+    propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
+    xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
+
 def addPreBuildEvents(csProjXML):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[
         {"name": "Name",          "value": "PreBuild"},
@@ -81,9 +85,23 @@ def addPreBuildEvents(csProjXML):
 
     xmler.add(csProjXML, target)
 
-def addDefaultVar(csProjXML):
-    propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
-    xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
+def addExternals(csProjXML, project):
+    contentItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOContent")
+    
+    for external in project.externals:
+        dontAdd = False
+        for resource in contentItemGroup.getElementsByTagName('Content'):
+            if resource.getAttribute('Include') == external:
+                dontAdd = True
+                break
+        
+        if dontAdd:
+            continue
+
+        content = csProjXML.createElement("Content")
+        content.setAttribute("Include", external)
+        xmler.getOrCreateElementWithValue(csProjXML, content, "CopyToOutputDirectory", "PreserveNewest")
+        contentItemGroup.appendChild(content)
 
 def do(args):
     project = product.load(args.projectPath)
@@ -94,4 +112,5 @@ def do(args):
     csProjXML = xmler.load(csPath)
     addDefaultVar(csProjXML)
     addPreBuildEvents(csProjXML)
+    addExternals(csProjXML, project)
     xmler.save(csProjXML, csPath)
