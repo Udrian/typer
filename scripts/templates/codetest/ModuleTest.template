@@ -7,10 +7,10 @@ namespace {{testName}};
 public class TestGame : Game
 {
     public static string GameName { get; set; } = "test";
-    public override void Initialize() { }
+    protected override void Initialize() { base.Initialize(); }
+    protected override void Cleanup() { }
     public override void Update(double dt) { Exit(); }
     public override void Draw() { }
-    public override void Cleanup() { }
 }
 
 public class {{name}}ModuleTest

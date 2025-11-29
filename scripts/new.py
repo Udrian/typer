@@ -10,7 +10,7 @@ def parse(parser):
     parser.add_argument(       '--noCommit',                action='store_true', help="Do not ask for git commit input")
     parser.add_argument('-v',  '--version',       type=str, default="0.1.0",     help="Version of project to set, defaults to 0.1.0")
     parser.add_argument('-d',  '--dependencies',  type=str, default="",          help="List of project dependencies")
-    parser.add_argument('-t',  '--type',          type=str, default="Module",    help="Sets project type, defaults to 'Module'", choices=["Module, Exe"])
+    parser.add_argument('-t',  '--type',          type=str, default="module",    help="Sets project type, defaults to 'module'", choices=["module, exe"])
     parser.add_argument(       '--clean',                   action='store_true', help="Creates a clean project with no code file template")
     parser.add_argument(       '--test',                    action='store_true', help="Add XUnit Test project")
     parser.add_argument(       '--testName',      type=str, default="",          help="Name for Test project")
@@ -150,8 +150,8 @@ def do(args):
     addExtraFiles(args)
 
     if os.name == 'nt':
-        os.system("./create_project_files.bat")
-        os.system("./typer/typer.bat dependency -p .")
+        os.system("create_project_files.bat")
+        os.system("typer/typer.bat dependency -p .")
     else:
         os.system("bash ./create_project_files.sh")
         os.system("bash ./typer/typer.sh dependency -p .")

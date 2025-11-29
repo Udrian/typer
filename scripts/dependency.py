@@ -76,11 +76,11 @@ def do(args):
                 xmler.save(csTestProjXML, csTestPath)
         
 def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev):
+    if not dev and dependency.dev:
+        return False
+    
     if dependency.nuget:
         resolveNuget(csProjXML, csPath, dependency)
-        return False
-
-    if not dev and dependency.dev:
         return False
     
     return resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency)
