@@ -65,6 +65,7 @@ class Dependency:
     version = ""
     local = False
     dev = False
+    test = False
     nuget = False
     Params = []
 
@@ -81,6 +82,8 @@ class Dependency:
             self.Params = params[1:]
             if "dev" in self.Params:
                 self.dev = True
+            if "test" in self.Params:
+                self.test = True
             if "local" in self.Params:
                 self.local = True
             if "nuget" in self.Params:

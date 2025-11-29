@@ -25,6 +25,8 @@ def do(args):
     for dependency in project.dependencies:
         if not project.haveDevModule and dependency.dev:
             continue
+        if not project.haveTest and dependency.test:
+            continue
         localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
         
         if not os.path.isdir(localModulePath) and not dependency.local and not dependency.nuget:
@@ -60,23 +62,25 @@ def do(args):
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
         
         csProjXML = xmler.load(csPath)
-        if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, False):
+        if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, False, False):
             xmler.save(csProjXML, csPath)
 
         if project.haveDevModule:
             csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, project.devModuleName, project.devModuleName)
             csTypeDProjXML = xmler.load(csTypeDPath)
-            if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleProjectPath, dependency, True):
+            if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleProjectPath, dependency, True, False):
                 xmler.save(csTypeDProjXML, csTypeDPath)
 
         if project.haveTest:
             csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
             csTestProjXML = xmler.load(csTestPath)
-            if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule):
+            if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule, False):
                 xmler.save(csTestProjXML, csTestPath)
         
-def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev):
+def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev, test):
     if not dev and dependency.dev:
+        return False
+    if not test and dependency.test:
         return False
     
     if dependency.nuget:
