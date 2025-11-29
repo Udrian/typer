@@ -17,7 +17,10 @@ class Product:
         self.name = product["name"]
 
         if "externals" in product:
-            self.externals = product["externals"]
+            externals = []
+            for externalString in product["externals"]:
+                externals.append(External(externalString))
+            self.externals = externals
         if "type" in product:
             self.type = product["type"]
             self.isModule = self.type == "Module"
@@ -66,7 +69,7 @@ class Dependency:
     Params = []
 
     def __init__(self, dependencyString):
-        if("@" in dependencyString):
+        if "@" in dependencyString:
             self.author = dependencyString.split("-")[0].split("@")[0]
             self.name = dependencyString.split("-")[0].split("@")[1]
         else:
@@ -83,6 +86,22 @@ class Dependency:
             if "nuget" in self.Params:
                 self.nuget = True
             self.version = params[0]
+
+class External:
+    path = ""
+    test = False
+    dev = False
+
+    def __init__(self, externalString):
+        if ";" in externalString:
+            params = externalString.split(";")
+            self.path = params[0]
+            if "test" in params:
+                self.test = True
+            if "dev" in params:
+                self.dev = True
+        else:
+            self.path = externalString
 
 def load(projectPath):
     path = "{}/product".format(projectPath)

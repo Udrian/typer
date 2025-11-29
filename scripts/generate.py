@@ -85,16 +85,21 @@ def addPreBuildEvents(csProjXML):
 
     xmler.add(csProjXML, target)
 
-def addExternals(csProjXML, project):
+def addExternals(csProjXML, project, dev, test):
     if not project.externals:
         return
 
     contentItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOContent")
     
     for external in project.externals:
+        if not dev and external.dev:
+            continue
+        if not test and external.test:
+            continue
+
         dontAdd = False
         for resource in contentItemGroup.getElementsByTagName('Content'):
-            if resource.getAttribute('Include') == external:
+            if resource.getAttribute('Include') == external.path:
                 dontAdd = True
                 break
         
@@ -102,7 +107,7 @@ def addExternals(csProjXML, project):
             continue
 
         content = csProjXML.createElement("Content")
-        content.setAttribute("Include", external)
+        content.setAttribute("Include", external.path)
         xmler.getOrCreateElementWithValue(csProjXML, content, "CopyToOutputDirectory", "PreserveNewest")
         contentItemGroup.appendChild(content)
 
@@ -115,5 +120,18 @@ def do(args):
     csProjXML = xmler.load(csPath)
     addDefaultVar(csProjXML)
     addPreBuildEvents(csProjXML)
-    addExternals(csProjXML, project)
+    addExternals(csProjXML, project, False, False)
+
+    if project.haveDevModule:
+        csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, project.devModuleName, project.devModuleName)
+        csTypeDProjXML = xmler.load(csTypeDPath)
+        addExternals(csTypeDProjXML, project, True, False)
+        xmler.save(csTypeDProjXML, csTypeDPath)
+
+    if project.haveTest:
+        csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
+        csTestProjXML = xmler.load(csTestPath)
+        addExternals(csTestProjXML, project, False, True)
+        xmler.save(csTestProjXML, csTestPath)
+
     xmler.save(csProjXML, csPath)
