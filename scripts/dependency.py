@@ -52,7 +52,7 @@ def do(args):
             oldcwd = os.getcwd()
             os.chdir(localModulePath)
             if os.name == 'nt':
-                os.system("./create_project_files.bat")
+                os.system("create_project_files.bat")
             else:
                 os.system("bash ./create_project_files.sh")
             os.chdir(oldcwd)
