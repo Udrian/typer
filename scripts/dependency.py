@@ -74,7 +74,7 @@ def do(args):
         if project.haveTest:
             csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
             csTestProjXML = xmler.load(csTestPath)
-            if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule, False):
+            if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule, True):
                 xmler.save(csTestProjXML, csTestPath)
         
 def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev, test):
