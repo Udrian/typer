@@ -45,13 +45,14 @@ def do(args):
             if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleProjectPath, dependency, True, False):
                 xmler.save(csTypeDProjXML, csTypeDPath)
             
-            dependencyProject = product.load(localModulePath)
-            if(dependencyProject.haveDevModule):
-                localModuleTypeDProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependencyProject.devModuleName)
-                typeDDependency = deepcopy(dependency)
-                typeDDependency.name = dependencyProject.devModuleName
-                if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleTypeDProjectPath, typeDDependency, True, False):
-                    xmler.save(csTypeDProjXML, csTypeDPath)
+            if not dependency.nuget:
+                dependencyProject = product.load(localModulePath)
+                if(dependencyProject.haveDevModule):
+                    localModuleTypeDProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependencyProject.devModuleName)
+                    typeDDependency = deepcopy(dependency)
+                    typeDDependency.name = dependencyProject.devModuleName
+                    if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleTypeDProjectPath, typeDDependency, True, False):
+                        xmler.save(csTypeDProjXML, csTypeDPath)
 
         if project.haveTest:
             csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
