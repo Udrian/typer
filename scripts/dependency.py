@@ -1,5 +1,6 @@
 import os, urllib.request, zipfile, shutil
 from scripts import product, xmler
+from copy import deepcopy
  
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
@@ -30,34 +31,7 @@ def do(args):
         localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
         
         if not os.path.isdir(localModulePath) and not dependency.local and not dependency.nuget:
-            print("Downloading '{}-{}'".format(dependency.name, dependency.version))
-
-            zipName = "{}.zip".format(dependency.version)
-            url = "https://github.com/{}/{}/archive/refs/tags/{}".format(dependency.author, dependency.name, zipName)
-            localZipPath = "{}/{}".format(localModulePath, zipName)
-            
-            os.makedirs(localModulePath)
-            urllib.request.urlretrieve(url, localZipPath)
-
-            with zipfile.ZipFile(localZipPath, 'r') as zip_ref:
-                zip_ref.extractall(localModulePath)
-
-            extractedDir = "{}/{}-{}".format(localModulePath, dependency.name.lower(), dependency.version)
-            files = os.listdir(extractedDir)
-            for file in files:
-                shutil.move(os.path.join(extractedDir, file), localModulePath)
-
-            os.remove(localZipPath)
-            os.removedirs(extractedDir)
-
-            os.system("git clone https://github.com/Udrian/typer.git {}/typer".format(localModulePath))
-            oldcwd = os.getcwd()
-            os.chdir(localModulePath)
-            if os.name == 'nt':
-                os.system("create_project_files.bat")
-            else:
-                os.system("bash ./create_project_files.sh")
-            os.chdir(oldcwd)
+            downloadAndExtractDependency(dependency, localModulePath)
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
         
@@ -70,6 +44,14 @@ def do(args):
             csTypeDProjXML = xmler.load(csTypeDPath)
             if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleProjectPath, dependency, True, False):
                 xmler.save(csTypeDProjXML, csTypeDPath)
+            
+            dependencyProject = product.load(localModulePath)
+            if(dependencyProject.haveDevModule):
+                localModuleTypeDProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependencyProject.devModuleName)
+                typeDDependency = deepcopy(dependency)
+                typeDDependency.name = dependencyProject.devModuleName
+                if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleTypeDProjectPath, typeDDependency, True, False):
+                    xmler.save(csTypeDProjXML, csTypeDPath)
 
         if project.haveTest:
             csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
@@ -77,6 +59,36 @@ def do(args):
             if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule, True):
                 xmler.save(csTestProjXML, csTestPath)
         
+def downloadAndExtractDependency(dependency, localModulePath):
+    print("Downloading '{}-{}'".format(dependency.name, dependency.version))
+
+    zipName = "{}.zip".format(dependency.version)
+    url = "https://github.com/{}/{}/archive/refs/tags/{}".format(dependency.author, dependency.name, zipName)
+    localZipPath = "{}/{}".format(localModulePath, zipName)
+    
+    os.makedirs(localModulePath)
+    urllib.request.urlretrieve(url, localZipPath)
+
+    with zipfile.ZipFile(localZipPath, 'r') as zip_ref:
+        zip_ref.extractall(localModulePath)
+
+    extractedDir = "{}/{}-{}".format(localModulePath, dependency.name.lower(), dependency.version)
+    files = os.listdir(extractedDir)
+    for file in files:
+        shutil.move(os.path.join(extractedDir, file), localModulePath)
+
+    os.remove(localZipPath)
+    os.removedirs(extractedDir)
+
+    os.system("git clone https://github.com/Udrian/typer.git {}/typer".format(localModulePath))
+    oldcwd = os.getcwd()
+    os.chdir(localModulePath)
+    if os.name == 'nt':
+        os.system("create_project_files.bat")
+    else:
+        os.system("bash ./create_project_files.sh")
+    os.chdir(oldcwd)
+
 def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev, test):
     if not dev and dependency.dev:
         return False
