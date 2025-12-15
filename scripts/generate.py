@@ -4,6 +4,10 @@ from scripts import product, xmler, cmd
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True,       help="Path to project")
 
+def checkAndInstallPrerequisites():
+    if not cmd.exist("dotnet new list Avalonia", "Avalonia"):
+        cmd.exec("dotnet new install Avalonia.Templates")
+
 def createProjectAndSolution(project):
     csProjFile = "{}/{}.csproj".format(project.name, project.name)
     csTestProjFile = "{}/{}.csproj".format(project.testName, project.testName)
@@ -18,9 +22,24 @@ def createProjectAndSolution(project):
         os.remove("{}/Class1.cs".format(project.name))
     if project.haveDevModule:
         if not os.path.exists(csTypeDProjFile):
-            cmd.exec("dotnet new wpflib --name {}".format(project.devModuleName))
-        if os.path.exists("{}/Class1.cs".format(project.devModuleName)):
-            os.remove("{}/Class1.cs".format(project.devModuleName))
+            cmd.exec("dotnet new avalonia.app --name {}".format(project.devModuleName))
+        filesToCleanup = ["{}/App.axaml".format(project.devModuleName),
+                          "{}/App.axaml.cs".format(project.devModuleName),
+                          "{}/app.manifest".format(project.devModuleName),
+                          "{}/MainWindow.axaml".format(project.devModuleName),
+                          "{}/MainWindow.axaml.cs".format(project.devModuleName),
+                          "{}/Program.cs".format(project.devModuleName)]
+        for file in filesToCleanup:
+            if os.path.exists(file):
+                os.remove(file)
+
+        if project.isModule:
+            csTypeDProjXML = xmler.load(csTypeDProjFile)
+            propertyGroup = xmler.getElementWithName(csTypeDProjXML, "PropertyGroup")
+            xmler.deleteElement(propertyGroup, "OutputType")
+            xmler.deleteElement(propertyGroup, "ApplicationManifest")
+            xmler.deleteElement(propertyGroup, "AvaloniaUseCompiledBindingsByDefault")
+            xmler.save(csTypeDProjXML, csTypeDProjFile)
         if not cmd.exist("dotnet list {} reference".format(csTypeDProjFile), csProjFile):
             cmd.exec("dotnet add {} reference {}".format(csTypeDProjFile, csProjFile))
     
@@ -40,11 +59,6 @@ def createProjectAndSolution(project):
         if not cmd.exist("dotnet list {} reference".format(csTestProjFile), csProjFile):
             cmd.exec("dotnet add {} reference {}".format(csTestProjFile, csProjFile))
         if project.haveDevModule:
-            csProjTestXML = xmler.load(csTestProjFile)
-            propertyGroup = xmler.getElementWithName(csProjTestXML, "PropertyGroup")
-            xmler.setElementWithValue(propertyGroup, "TargetFramework", "{}-windows".format(xmler.getElementWithName(propertyGroup, "TargetFramework").firstChild.data))
-            xmler.getOrCreateElementWithValue(csProjTestXML, propertyGroup, "UseWPF", "true")
-            xmler.save(csProjTestXML, csTestProjFile)
             if not cmd.exist("dotnet list {} reference".format(csTestProjFile), csTypeDProjFile):
                 cmd.exec("dotnet add {} reference {}".format(csTestProjFile, csTypeDProjFile))
         if(os.path.exists(testUsingFile)):
@@ -115,6 +129,7 @@ def do(args):
     project = product.load(args.projectPath)
     csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
     os.chdir(args.projectPath)
+    checkAndInstallPrerequisites()
     createProjectAndSolution(project)
 
     csProjXML = xmler.load(csPath)

@@ -12,4 +12,4 @@ def exec(command, printout = True):
     return p
 
 def exist(command, var):
-    return len([l for l in exec(command, False).splitlines() if l.endswith(var)]) > 0
+    return len([l for l in exec(command, False).splitlines() if l.endswith(var) or l.startswith(var)]) > 0

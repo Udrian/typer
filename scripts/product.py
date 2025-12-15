@@ -23,7 +23,7 @@ class Product:
             self.externals = externals
         if "type" in product:
             self.type = product["type"]
-            self.isModule = self.type == "Module"
+            self.isModule = self.type == "module"
         if "devModuleName" in product and product["devModuleName"] != "":
             self.haveDevModule = True
             self.devModuleName = product["devModuleName"]

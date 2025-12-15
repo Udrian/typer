@@ -1,6 +1,6 @@
 import os, json
 from datetime import date
-from scripts import product
+from scripts import product, cmd
 
 def parse(parser):
     parser.add_argument('-n',  '--name',          type=str, required=True,       help="New project name")
@@ -151,10 +151,10 @@ def do(args):
 
     if os.name == 'nt':
         os.system("create_project_files.bat")
-        os.system("typer/typer.bat dependency -p .")
+        cmd.exec(".\\typer\\typer.bat dependency -p ..")
     else:
         os.system("bash ./create_project_files.sh")
-        os.system("bash ./typer/typer.sh dependency -p .")
+        os.system("bash ./typer/typer.sh dependency -p ..")
 
     if not args.clean:
         project = product.load(projectPath)

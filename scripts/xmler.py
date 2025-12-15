@@ -60,6 +60,10 @@ def createElement(xml, element, name, content):
     else:
         element.appendChild(retEl)
 
+def deleteElement(element, name):
+    child = element.getElementsByTagName(name)[0]
+    element.removeChild(child)
+
 def add(xml, element):
     xml.childNodes[0].appendChild(element)
 
