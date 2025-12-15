@@ -28,7 +28,7 @@ def do(args):
             continue
         if not project.haveTest and dependency.test:
             continue
-        if not dependency.local:
+        if dependency.local:
             localModulePath = "{}".format(dependency.version)
         else:
             localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
