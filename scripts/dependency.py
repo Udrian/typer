@@ -28,7 +28,10 @@ def do(args):
             continue
         if not project.haveTest and dependency.test:
             continue
-        localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
+        if not dependency.local:
+            localModulePath = "{}".format(dependency.version)
+        else:
+            localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
         
         if not os.path.isdir(localModulePath) and not dependency.local and not dependency.nuget:
             downloadAndExtractDependency(dependency, localModulePath)
@@ -121,7 +124,7 @@ def resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency):
     dontAdd = False
     for reference in moduleItemGroup.getElementsByTagName('ProjectReference'):
         if reference.getAttribute('Name') == dependency.name:
-            if (dependency.local and reference.getAttribute('Include') != dependency.version) or (not dependency.local and reference.getAttribute('Include') != localModuleProjectPath):
+            if reference.getAttribute('Include') != localModuleProjectPath:
                 os.system("dotnet sln {} remove {}".format(slnPath, reference.getAttribute('Include')))
                 moduleItemGroup.removeChild(reference)
             else:
@@ -133,12 +136,8 @@ def resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency):
 
     reference = csProjXML.createElement("ProjectReference")
     reference.setAttribute("Name", dependency.name)
-    if dependency.local:
-        reference.setAttribute("Include", dependency.version)
-        os.system("dotnet sln {} add {}".format(slnPath, dependency.version))
-    else:
-        reference.setAttribute("Include", localModuleProjectPath)
-        os.system("dotnet sln {} add {}".format(slnPath, localModuleProjectPath))
+    reference.setAttribute("Include", localModuleProjectPath)
+    os.system("dotnet sln {} add {}".format(slnPath, localModuleProjectPath))
     moduleItemGroup.appendChild(reference)
 
     return True
