@@ -31,7 +31,7 @@ class Product:
             self.haveTest = True
             self.testName = product["testName"]
 
-        dependencyOverridePath = "{}/dependency_override".format(projectPath)
+        dependencyOverridePath = "{}/typeo_override.json".format(projectPath)
         dependencyOverrides = []
         if os.path.exists(dependencyOverridePath):
             with open(dependencyOverridePath) as f:
@@ -107,7 +107,7 @@ class External:
             self.path = externalString
 
 def load(projectPath):
-    path = "{}/product".format(projectPath)
+    path = "{}/typeo.json".format(projectPath)
     with open(path) as f:
         product = json.load(f)
     return Product(product, projectPath)

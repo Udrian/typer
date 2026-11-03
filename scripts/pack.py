@@ -56,7 +56,7 @@ def pack(name, output, project, args):
         print("Adding extra files to zip")
         addFileToZip(zipObj, "{}/Readme-TypeO.txt".format(args.projectPath), "")
         addFileToZip(zipObj, "{}/ReleaseNotes-{}.txt".format(args.projectPath, name), "")
-        addFileToZip(zipObj, "{}/product".format(args.projectPath), "")
+        addFileToZip(zipObj, "{}/typeo.json".format(args.projectPath), "")
 
 def addExternal(externals, zipObj, path):
     for external in externals.copy():

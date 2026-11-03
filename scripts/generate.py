@@ -81,6 +81,7 @@ def createProjectAndSolution(project):
 def addDefaultVar(csProjXML):
     propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
     xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
+    xmler.deleteElement(propertyGroup, "Nullable")
 
 def addPreBuildEvents(csProjXML):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[

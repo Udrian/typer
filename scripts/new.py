@@ -42,12 +42,12 @@ def addExtraFiles(args):
             f.writelines([
                 "" if f.tell() == 0 else "\n",
                 "# TypeO\n",
-                "dependency_override\n",
+                "typeo_override.json\n",
                 "*.sln\n",
                 "*.csproj"
             ])
 
-    CreateFileFromTemplate("dependency_override", "templates/dependency_override.template", {})
+    CreateFileFromTemplate("typeo_override.json", "templates/typeo_override.json.template", {})
     
     dependencies = args.dependencies.split()
     if len(dependencies) == 0:
@@ -72,7 +72,7 @@ def addExtraFiles(args):
             product["testName"] = "{}Test".format(args.name)
         else:
             product["testName"] = args.testName
-    CreateFile("product", json.dumps(product, ensure_ascii=False, indent=4))
+    CreateFile("typeo.json", json.dumps(product, ensure_ascii=False, indent=4))
 
     CreateFileFromTemplate("Readme-TypeO.txt", "templates/Readme-TypeO.template", {})
 
