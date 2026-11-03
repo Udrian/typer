@@ -193,11 +193,35 @@ class DoTests(TempDirTestCase):
         download.assert_not_called()
         system.assert_called_once_with("dotnet add {} package Pkg -v 1.0".format(self.path("proj/Foo/Foo.csproj")))
 
-    def test_dev_dependency_skipped_without_dev_project(self):
-        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeD-0.1.0.dev;dev"]})
-        _, download = self.run_do()
+    def test_dev_nuget_dependency_skipped_without_dev_project(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Pkg-1.0;nuget;dev"]})
+        system, download = self.run_do()
         download.assert_not_called()
-        self.assertEqual(self.refs("Foo"), [])
+        system.assert_not_called()
+
+    def test_dev_module_without_dev_project_goes_to_main_project_with_its_dev_projects(self):
+        self.makeModule("TypeOCore", "0.1.0", devName="TypeDCore")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": [
+            "Udrian@TypeOCore-0.1.0", "Udrian@TypeOCore-0.1.0;dev"]})
+        self.run_do()
+        self.assertEqual(self.refs("Foo"), ["TypeOCore", "TypeDCore"])
+
+    def test_dev_module_with_dev_project_still_only_goes_to_dev_project(self):
+        self.makeModule("TypeD", "0.1.0")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeD-0.1.0;dev"],
+                          "project": [{"Name": "Foo"}, {"Name": "FooDev", "type": "dev"}]})
+        self.run_do()
+        self.assertEqual((self.refs("Foo"), self.refs("FooDev")), ([], ["TypeD"]))
+
+    def test_references_survive_repeated_runs_for_plain_and_dev_override_pairs(self):
+        self.makeModule("TypeOCore", "0.1.0", devName="TypeDCore")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": []})
+        self.write("proj/typeo_override.json", json.dumps([
+            "Udrian@TypeOCore-0.1.0", "Udrian@TypeOCore-0.1.0;dev"]))
+        for _ in range(2):
+            system, _ = self.run_do()
+            self.assertEqual(self.refs("Foo"), ["TypeOCore", "TypeDCore"])
+            self.assertNotIn("remove", " ".join(c.args[0] for c in system.call_args_list))
 
     def test_test_dependency_skipped_without_test_project(self):
         self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@Mocks-0.1.0;test"]})

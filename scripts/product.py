@@ -1,5 +1,11 @@
 import json, os
 
+def overrideKey(dependencyString):
+    # A plain and a ;dev/;test entry for the same name are separate dependencies
+    parts = dependencyString.split(";")
+    tags = {p for p in parts[1:] if p in ("dev", "test")}
+    return (parts[0].split("-")[0], frozenset(tags))
+
 class Product:
     name = ""
     version = ""
@@ -50,7 +56,7 @@ class Product:
             i = 0
             found = False
             for dependency in dependencyStrings:
-                if dependency.split("-")[0] == dependencyOverride.split("-")[0]:
+                if overrideKey(dependency) == overrideKey(dependencyOverride):
                     dependencyStrings[i] = dependencyOverride
                     found = True
                     break
@@ -89,12 +95,19 @@ class Dependency:
     Params = []
     projectTypes = []
 
-    def appliesTo(self, projectType):
+    def appliesTo(self, projectType, allProjectTypes=None):
         # Untagged dependencies go to every project, tagged ones to the project of that type.
         # The test project builds against everything.
         if projectType == "test" or not self.projectTypes:
             return True
-        return projectType in self.projectTypes
+        if projectType in self.projectTypes:
+            return True
+        return projectType == "" and self.usesMainAsDev(allProjectTypes)
+
+    def usesMainAsDev(self, allProjectTypes):
+        # Without a dev project, a ;dev module dependency is taken by the main project instead
+        return bool(allProjectTypes is not None and not self.nuget and "dev" in self.projectTypes
+                    and "dev" not in allProjectTypes)
 
     def __init__(self, dependencyString):
         if "@" in dependencyString:

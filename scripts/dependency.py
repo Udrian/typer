@@ -27,7 +27,8 @@ def do(args):
     expectedNugets = {sub.name: set() for sub in project.projects}
 
     for dependency in project.dependencies:
-        if dependency.projectTypes and not any(t in projectTypes for t in dependency.projectTypes):
+        if dependency.projectTypes and not any(t in projectTypes for t in dependency.projectTypes) \
+                and not dependency.usesMainAsDev(projectTypes):
             continue
         if dependency.local:
             localModulePath = "{}".format(dependency.version)
@@ -40,29 +41,28 @@ def do(args):
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
 
         dependencyDevProjects = []
-        if not dependency.nuget and any(t == "dev" for t in projectTypes):
+        if not dependency.nuget and ("dev" in projectTypes or dependency.usesMainAsDev(projectTypes)):
             dependencyDevProjects = [sub for sub in product.load(localModulePath).projects if sub.type == "dev"]
 
         for sub in project.projects:
             csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
-            if dependency.appliesTo(sub.type):
+            if dependency.appliesTo(sub.type, projectTypes):
                 if dependency.nuget:
                     expectedNugets[sub.name].add(dependency.name)
                 else:
                     expectedModules[sub.name][dependency.name] = localModuleProjectPath
             csProjXML = xmler.load(csPath)
-            if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, sub.type):
+            if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, sub.type, projectTypes):
                 xmler.save(csProjXML, csPath)
 
-            if sub.type == "dev":
+            if sub.type == "dev" or (sub.type == "" and dependency.usesMainAsDev(projectTypes)):
                 for devProject in dependencyDevProjects:
                     typeDDependency = deepcopy(dependency)
                     typeDDependency.name = devProject.name
                     localDevProjectPath = "{}/{}".format(localModulePath, devProject.csprojPath)
-                    if typeDDependency.appliesTo("dev"):
-                        expectedModules[sub.name][devProject.name] = localDevProjectPath
+                    expectedModules[sub.name][devProject.name] = localDevProjectPath
                     csProjXML = xmler.load(csPath)
-                    if manipulateProject(csProjXML, csPath, slnPath, localDevProjectPath, typeDDependency, "dev"):
+                    if manipulateProject(csProjXML, csPath, slnPath, localDevProjectPath, typeDDependency, "dev", ["dev"]):
                         xmler.save(csProjXML, csPath)
 
     removedIncludes = set()
@@ -128,8 +128,8 @@ def downloadAndExtractDependency(dependency, localModulePath):
         os.system("bash ./create_project_files.sh")
     os.chdir(oldcwd)
 
-def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, projectType):
-    if not dependency.appliesTo(projectType):
+def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, projectType, allProjectTypes=None):
+    if not dependency.appliesTo(projectType, allProjectTypes):
         return False
     
     if dependency.nuget:

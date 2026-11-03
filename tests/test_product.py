@@ -226,5 +226,24 @@ class SubProjectTests(unittest.TestCase):
         self.assertEqual(p.testName, "Y")
 
 
+
+class OverrideMergeTests(TempDirTestCase):
+    def load(self, dependencies, overrides):
+        self.writeTypeO(".", {"name": "Foo", "version": "1", "dependencies": dependencies}, override=overrides)
+        return product.load(self.tmp)
+
+    def test_plain_and_dev_entries_of_same_name_are_kept_separate(self):
+        p = self.load(["A-1"], ["A-2", "A-2;dev"])
+        self.assertEqual([(d.name, d.version, d.dev) for d in p.dependencies], [("A", "2", False), ("A", "2", True)])
+
+    def test_override_replaces_entry_with_same_name_and_tags(self):
+        p = self.load(["A-1", "A-1;dev"], ["A-9;dev"])
+        self.assertEqual([(d.version, d.dev) for d in p.dependencies], [("1", False), ("9", True)])
+
+    def test_local_and_nuget_tags_do_not_change_identity(self):
+        p = self.load(["A-1"], ["A-../a;local"])
+        self.assertEqual([(d.version, d.local) for d in p.dependencies], [("../a", True)])
+
+
 if __name__ == "__main__":
     unittest.main()
