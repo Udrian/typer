@@ -10,12 +10,8 @@ def parse(parser):
     parser.add_argument(       '--noCommit',                action='store_true', help="Do not ask for git commit input")
     parser.add_argument('-v',  '--version',       type=str, default="0.1.0",     help="Version of project to set, defaults to 0.1.0")
     parser.add_argument('-d',  '--dependencies',  type=str, default="",          help="List of project dependencies")
-    parser.add_argument('-t',  '--type',          type=str, default="module",    help="Sets project type, defaults to 'module'", choices=["module, exe"])
+    parser.add_argument('-t',  '--type',          type=str, default="module",    help="Sets project type, defaults to 'module'", choices=["module", "exe"])
     parser.add_argument(       '--clean',                   action='store_true', help="Creates a clean project with no code file template")
-    parser.add_argument(       '--test',                    action='store_true', help="Add XUnit Test project")
-    parser.add_argument(       '--testName',      type=str, default="",          help="Name for Test project")
-    parser.add_argument(       '--dev',                     action='store_true', help="Add a TypeD Dev module")
-    parser.add_argument(       '--devModuleName', type=str, default="",          help="Name for TypeD Dev module")
 
 def cloneTyper(args):
     if not args.disableGit:
@@ -52,26 +48,17 @@ def addExtraFiles(args):
     dependencies = args.dependencies.split()
     if len(dependencies) == 0:
         dependencies.append("Udrian@TypeOCore-0.1.0")
-        if args.dev:
-            dependencies.append("Udrian@TypeD-0.1.0;dev")
     
     product = {
         "name": args.name,
         "version": args.version,
         "externals": [],
         "dependencies": dependencies,
-        "type" : args.type
+        "type" : args.type,
+        "project": [
+            {"Name": args.name, "type": "", "depends_on": []}
+        ]
     }
-    if args.dev:
-        if args.devModuleName == "":
-            product["devModuleName"] = "TypeD{}".format(args.name.removeprefix("TypeO"))
-        else:
-            product["devModuleName"] = args.devModuleName
-    if args.test:
-        if args.testName == "":
-            product["testName"] = "{}Test".format(args.name)
-        else:
-            product["testName"] = args.testName
     CreateFile("typeo.json", json.dumps(product, ensure_ascii=False, indent=4))
 
     CreateFileFromTemplate("Readme-TypeO.txt", "templates/Readme-TypeO.template", {})
@@ -159,12 +146,6 @@ def do(args):
     if not args.clean:
         project = product.load(projectPath)
         createCodeFiles(project)
-        if args.dev:
-            createCodeTypeDFiles(project)
-        if args.test:
-            createCodeTestFiles(project)
-            if args.dev:
-                createCodeTypeDTestFiles(project)
 
     if not args.disableGit:
         os.system("git add .")

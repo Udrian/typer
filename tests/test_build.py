@@ -67,7 +67,7 @@ class BuildTests(TempDirTestCase):
 
     def test_do_builds_dev_module_too(self):
         commands = self.run_do({"name": "Foo", "version": "1.0.0", "project": [
-            {"Name": "Foo"}, {"Name": "TypeDFoo", "isDev": True}, {"Name": "FooTest", "isTest": True}]})
+            {"Name": "Foo"}, {"Name": "TypeDFoo", "type": "dev"}, {"Name": "FooTest", "type": "test"}]})
         self.assertEqual(len(commands), 2)
         self.assertIn("Foo/Foo.csproj", commands[0])
         self.assertIn("TypeDFoo/TypeDFoo.csproj", commands[1])

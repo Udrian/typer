@@ -39,9 +39,16 @@ class MainTests(unittest.TestCase):
     def test_list(self):
         self.assert_dispatch("list", ["-a", "Udrian", "-n", "TypeOCore"], {"authorName": "Udrian", "projectName": "TypeOCore"})
 
+    def test_addproject(self):
+        self.assert_dispatch("addproject", ["-p", "proj", "-n", "Bar", "-t", "test", "--depends_on", "Foo"],
+                             {"projectPath": "proj", "name": "Bar", "type": "test", "depends_on": ["Foo"]})
+
+    def test_removeproject(self):
+        self.assert_dispatch("removeproject", ["-p", "proj", "-n", "Bar"], {"projectPath": "proj", "name": "Bar"})
+
     def test_only_the_selected_command_runs(self):
         patches = {name: mock.patch("scripts.{}.do".format(name)) for name in
-                   ("build", "pack", "upload", "dependency", "new", "generate", "list")}
+                   ("build", "pack", "upload", "dependency", "new", "generate", "list", "addproject", "removeproject")}
         mocks = {name: p.start() for name, p in patches.items()}
         self.addCleanup(lambda: [p.stop() for p in patches.values()])
         self.run_main("upload", "-p", "proj")
@@ -54,7 +61,7 @@ class MainTests(unittest.TestCase):
             self.run_main()
         text = out.getvalue()
         self.assertIn("usage", text.lower())
-        for name in ("build", "pack", "upload", "dependency", "new", "generate", "list"):
+        for name in ("build", "pack", "upload", "dependency", "new", "generate", "list", "addproject", "removeproject"):
             self.assertIn(name, text)
 
     def test_unknown_command_exits_with_error(self):

@@ -11,6 +11,7 @@ class Product:
     dependencies = []
     haveTest = False
     testName = ""
+    projects = []
 
     def __init__(self, product, projectPath):
         self.version = product["version"]
@@ -24,12 +25,16 @@ class Product:
         if "type" in product:
             self.type = product["type"]
             self.isModule = self.type == "module"
-        if "devModuleName" in product and product["devModuleName"] != "":
-            self.haveDevModule = True
-            self.devModuleName = product["devModuleName"]
-        if "testName" in product and product["testName"] != "":
-            self.haveTest = True
-            self.testName = product["testName"]
+        self.projects = [SubProject(p) for p in product.get("project", [])]
+        if not any(p.name == self.name for p in self.projects):
+            self.projects.insert(0, SubProject({"Name": self.name}))
+        for subProject in self.projects:
+            if subProject.type == "dev" and not self.haveDevModule:
+                self.haveDevModule = True
+                self.devModuleName = subProject.name
+            if subProject.type == "test" and not self.haveTest:
+                self.haveTest = True
+                self.testName = subProject.name
 
         dependencyOverridePath = "{}/typeo_override.json".format(projectPath)
         dependencyOverrides = []
@@ -59,6 +64,20 @@ class Product:
 
         self.dependencies = dependencies
 
+class SubProject:
+    name = ""
+    type = ""
+    dependsOn = []
+
+    def __init__(self, subProject):
+        self.name = subProject["Name"]
+        self.type = subProject.get("type", "")
+        self.dependsOn = list(subProject.get("depends_on", []))
+
+    @property
+    def csprojPath(self):
+        return "{0}/{0}.csproj".format(self.name)
+
 class Dependency:
     name = ""
     author = ""
@@ -68,6 +87,14 @@ class Dependency:
     test = False
     nuget = False
     Params = []
+    projectTypes = []
+
+    def appliesTo(self, projectType):
+        # Untagged dependencies go to every project, tagged ones to the project of that type.
+        # The test project builds against everything.
+        if projectType == "test" or not self.projectTypes:
+            return True
+        return projectType in self.projectTypes
 
     def __init__(self, dependencyString):
         if "@" in dependencyString:
@@ -77,17 +104,17 @@ class Dependency:
             self.name = dependencyString.split("-")[0]
         self.version = dependencyString.split("-")[1]
         self.Params = []
+        self.projectTypes = []
         if ";" in self.version:
             params = self.version.split(";")
             self.Params = params[1:]
-            if "dev" in self.Params:
-                self.dev = True
-            if "test" in self.Params:
-                self.test = True
             if "local" in self.Params:
                 self.local = True
             if "nuget" in self.Params:
                 self.nuget = True
+            self.projectTypes = [p for p in self.Params if p not in ("local", "nuget")]
+            self.dev = "dev" in self.projectTypes
+            self.test = "test" in self.projectTypes
             self.version = params[0]
 
 class External:
@@ -105,6 +132,14 @@ class External:
                 self.dev = True
         else:
             self.path = externalString
+
+def readJson(projectPath):
+    with open("{}/typeo.json".format(projectPath)) as f:
+        return json.load(f)
+
+def writeJson(projectPath, data):
+    with open("{}/typeo.json".format(projectPath), "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load(projectPath):
     path = "{}/typeo.json".format(projectPath)

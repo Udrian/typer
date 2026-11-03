@@ -8,75 +8,88 @@ def checkAndInstallPrerequisites():
     if not cmd.exist("dotnet new list Avalonia", "Avalonia"):
         cmd.exec("dotnet new install Avalonia.Templates")
 
+def createClassLib(sub):
+    if not os.path.exists(sub.csprojPath):
+        cmd.exec("dotnet new classlib --name {}".format(sub.name))
+    if os.path.exists("{}/Class1.cs".format(sub.name)):
+        os.remove("{}/Class1.cs".format(sub.name))
+
+def createDevProject(project, sub):
+    if not os.path.exists(sub.csprojPath):
+        cmd.exec("dotnet new avalonia.app --name {}".format(sub.name))
+    filesToCleanup = ["{}/App.axaml".format(sub.name),
+                      "{}/App.axaml.cs".format(sub.name),
+                      "{}/app.manifest".format(sub.name),
+                      "{}/MainWindow.axaml".format(sub.name),
+                      "{}/MainWindow.axaml.cs".format(sub.name),
+                      "{}/Program.cs".format(sub.name)]
+    for file in filesToCleanup:
+        if os.path.exists(file):
+            os.remove(file)
+
+    if project.isModule:
+        csProjXML = xmler.load(sub.csprojPath)
+        propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
+        xmler.deleteElement(propertyGroup, "OutputType")
+        xmler.deleteElement(propertyGroup, "ApplicationManifest")
+        xmler.deleteElement(propertyGroup, "AvaloniaUseCompiledBindingsByDefault")
+        xmler.save(csProjXML, sub.csprojPath)
+
+def createTestProject(sub):
+    testFile = "{}/UnitTest1.cs".format(sub.name)
+    testUsingFile = "{}/Usings.cs".format(sub.name)
+    testUsingFileTemp = "{}_temp".format(testUsingFile)
+    testUsingFileExisted = os.path.exists(testUsingFile)
+    testFileFound = os.path.exists(testFile)
+    if testUsingFileExisted:
+        os.rename(testUsingFile, testUsingFileTemp)
+    if not os.path.exists(sub.csprojPath):
+        cmd.exec("dotnet new xunit --name {}".format(sub.name))
+    if os.path.exists(testUsingFile):
+        os.remove(testUsingFile)
+    if testUsingFileExisted:
+        os.rename(testUsingFileTemp, testUsingFile)
+    if not testFileFound and os.path.exists(testFile):
+        os.remove(testFile)
+
+def validateProjects(project):
+    names = [sub.name for sub in project.projects]
+    for sub in project.projects:
+        if names.count(sub.name) > 1:
+            raise ValueError("Project '{}' is defined more than once".format(sub.name))
+        if sub.type not in ("", "dev", "test"):
+            raise ValueError("Project '{}' has unknown type '{}'".format(sub.name, sub.type))
+        for dependency in sub.dependsOn:
+            if dependency not in names:
+                raise ValueError("Project '{}' depends on unknown project '{}'".format(sub.name, dependency))
+            if dependency == sub.name:
+                raise ValueError("Project '{}' can't depend on itself".format(sub.name))
+
 def createProjectAndSolution(project):
-    csProjFile = "{}/{}.csproj".format(project.name, project.name)
-    csTestProjFile = "{}/{}.csproj".format(project.testName, project.testName)
-    csTypeDProjFile = "{}/{}.csproj".format(project.devModuleName, project.devModuleName)
+    validateProjects(project)
     slnFile = "{}.sln".format(project.name)
 
     if not os.path.exists(slnFile):
         cmd.exec("dotnet new sln --name {}".format(project.name))
-    if not os.path.exists(csProjFile):
-        cmd.exec("dotnet new classlib --name {}".format(project.name))
-    if os.path.exists("{}/Class1.cs".format(project.name)):
-        os.remove("{}/Class1.cs".format(project.name))
-    if project.haveDevModule:
-        if not os.path.exists(csTypeDProjFile):
-            cmd.exec("dotnet new avalonia.app --name {}".format(project.devModuleName))
-        filesToCleanup = ["{}/App.axaml".format(project.devModuleName),
-                          "{}/App.axaml.cs".format(project.devModuleName),
-                          "{}/app.manifest".format(project.devModuleName),
-                          "{}/MainWindow.axaml".format(project.devModuleName),
-                          "{}/MainWindow.axaml.cs".format(project.devModuleName),
-                          "{}/Program.cs".format(project.devModuleName)]
-        for file in filesToCleanup:
-            if os.path.exists(file):
-                os.remove(file)
 
-        if project.isModule:
-            csTypeDProjXML = xmler.load(csTypeDProjFile)
-            propertyGroup = xmler.getElementWithName(csTypeDProjXML, "PropertyGroup")
-            xmler.deleteElement(propertyGroup, "OutputType")
-            xmler.deleteElement(propertyGroup, "ApplicationManifest")
-            xmler.deleteElement(propertyGroup, "AvaloniaUseCompiledBindingsByDefault")
-            xmler.save(csTypeDProjXML, csTypeDProjFile)
-        if not cmd.exist("dotnet list {} reference".format(csTypeDProjFile), csProjFile):
-            cmd.exec("dotnet add {} reference {}".format(csTypeDProjFile, csProjFile))
-    
-    if project.haveTest:
-        testFile = "{}/UnitTest1.cs".format(project.testName)
-        testUsingFile = "{}/Usings.cs".format(project.testName)
-        testUsingFileTemp = "{}_temp".format(testUsingFile)
-        testUsingFileExisted = False
-        testFileFound = False
-        if os.path.exists(testFile):
-            testFileFound = True
-        if os.path.exists(testUsingFile):
-            testUsingFileExisted = True
-            os.rename(testUsingFile, testUsingFileTemp)
-        if not os.path.exists(csTestProjFile):
-            cmd.exec("dotnet new xunit --name {}".format(project.testName))
-        if not cmd.exist("dotnet list {} reference".format(csTestProjFile), csProjFile):
-            cmd.exec("dotnet add {} reference {}".format(csTestProjFile, csProjFile))
-        if project.haveDevModule:
-            if not cmd.exist("dotnet list {} reference".format(csTestProjFile), csTypeDProjFile):
-                cmd.exec("dotnet add {} reference {}".format(csTestProjFile, csTypeDProjFile))
-        if(os.path.exists(testUsingFile)):
-            os.remove(testUsingFile)
-        if testUsingFileExisted:
-            os.rename(testUsingFileTemp, testUsingFile)
-        if not testFileFound:
-            if(os.path.exists(testFile)):
-                os.remove(testFile)
+    for sub in project.projects:
+        if sub.type == "dev":
+            createDevProject(project, sub)
+        elif sub.type == "test":
+            createTestProject(sub)
+        else:
+            createClassLib(sub)
 
-    if not cmd.exist("dotnet sln {} list".format(slnFile), csProjFile):
-        cmd.exec("dotnet sln {} add {}".format(slnFile, csProjFile))
-    if project.haveDevModule:
-        if not cmd.exist("dotnet sln {} list".format(slnFile), csTypeDProjFile):
-            cmd.exec("dotnet sln {} add {}".format(slnFile, csTypeDProjFile))
-    if project.haveTest:
-        if not cmd.exist("dotnet sln {} list".format(slnFile), csTestProjFile):
-            cmd.exec("dotnet sln {} add {}".format(slnFile, csTestProjFile))
+    projectsByName = {sub.name: sub for sub in project.projects}
+    for sub in project.projects:
+        for dependency in sub.dependsOn:
+            dependencyFile = projectsByName[dependency].csprojPath
+            if not cmd.exist("dotnet list {} reference".format(sub.csprojPath), dependencyFile):
+                cmd.exec("dotnet add {} reference {}".format(sub.csprojPath, dependencyFile))
+
+    for sub in project.projects:
+        if not cmd.exist("dotnet sln {} list".format(slnFile), sub.csprojPath):
+            cmd.exec("dotnet sln {} add {}".format(slnFile, sub.csprojPath))
 
 def addDefaultVar(csProjXML):
     propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
@@ -128,26 +141,15 @@ def addExternals(csProjXML, project, dev, test):
 
 def do(args):
     project = product.load(args.projectPath)
-    csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
     os.chdir(args.projectPath)
     checkAndInstallPrerequisites()
     createProjectAndSolution(project)
 
-    csProjXML = xmler.load(csPath)
-    addDefaultVar(csProjXML)
-    addPreBuildEvents(csProjXML)
-    addExternals(csProjXML, project, False, False)
-
-    if project.haveDevModule:
-        csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, project.devModuleName, project.devModuleName)
-        csTypeDProjXML = xmler.load(csTypeDPath)
-        addExternals(csTypeDProjXML, project, True, False)
-        xmler.save(csTypeDProjXML, csTypeDPath)
-
-    if project.haveTest:
-        csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
-        csTestProjXML = xmler.load(csTestPath)
-        addExternals(csTestProjXML, project, False, True)
-        xmler.save(csTestProjXML, csTestPath)
-
-    xmler.save(csProjXML, csPath)
+    for sub in project.projects:
+        csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
+        csProjXML = xmler.load(csPath)
+        if sub.type == "":
+            addDefaultVar(csProjXML)
+            addPreBuildEvents(csProjXML)
+        addExternals(csProjXML, project, sub.type == "dev", sub.type == "test")
+        xmler.save(csProjXML, csPath)

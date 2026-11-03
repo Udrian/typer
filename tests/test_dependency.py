@@ -22,33 +22,43 @@ class ParseTests(unittest.TestCase):
 
 
 class ManipulateProjectTests(unittest.TestCase):
-    def call(self, dependency_, dev=False, test=False):
+    def call(self, dependency_, projectType=""):
         xml = parseXml()
         with mock.patch("scripts.dependency.resolveNuget") as nuget, \
                 mock.patch("scripts.dependency.resolveTypeODep", return_value=True) as typeo:
-            result = dependency.manipulateProject(xml, "a.csproj", "a.sln", "path.csproj", dependency_, dev, test)
+            result = dependency.manipulateProject(xml, "a.csproj", "a.sln", "path.csproj", dependency_, projectType)
         return result, nuget, typeo
 
     def test_dev_dependency_skipped_for_non_dev_project(self):
-        result, nuget, typeo = self.call(dep("A-1;dev"), dev=False)
+        result, nuget, typeo = self.call(dep("A-1;dev"), "")
         self.assertFalse(result)
         nuget.assert_not_called()
         typeo.assert_not_called()
 
     def test_dev_dependency_used_for_dev_project(self):
-        result, _, typeo = self.call(dep("A-1;dev"), dev=True)
+        result, _, typeo = self.call(dep("A-1;dev"), "dev")
         self.assertTrue(result)
         typeo.assert_called_once()
 
     def test_test_dependency_skipped_for_non_test_project(self):
-        result, _, typeo = self.call(dep("A-1;test"), test=False)
+        result, _, typeo = self.call(dep("A-1;test"), "dev")
         self.assertFalse(result)
         typeo.assert_not_called()
 
     def test_test_dependency_used_for_test_project(self):
-        result, _, typeo = self.call(dep("A-1;test"), test=True)
+        result, _, typeo = self.call(dep("A-1;test"), "test")
         self.assertTrue(result)
         typeo.assert_called_once()
+
+    def test_test_project_receives_dev_tagged_dependency(self):
+        result, _, typeo = self.call(dep("A-1;dev"), "test")
+        self.assertTrue(result)
+        typeo.assert_called_once()
+
+    def test_untagged_dependency_goes_to_every_project_type(self):
+        for projectType in ("", "dev", "test"):
+            result, _, _ = self.call(dep("Udrian@A-1.0"), projectType)
+            self.assertTrue(result, projectType)
 
     def test_nuget_dependency_is_resolved_and_never_requires_save(self):
         result, nuget, typeo = self.call(dep("Pkg-1.0;nuget"))
@@ -135,7 +145,7 @@ class DoTests(TempDirTestCase):
     def makeModule(self, name, version, devName=None):
         data = {"name": name, "version": "0.1.0", "project": [{"Name": name}]}
         if devName:
-            data["project"].append({"Name": devName, "isDev": True})
+            data["project"].append({"Name": devName, "type": "dev"})
         self.writeTypeO("cache/{}/{}".format(name, version), data)
 
     def makeProject(self, data):
@@ -220,7 +230,7 @@ class DoTests(TempDirTestCase):
         self.makeModule("TypeD", "0.1.0.dev")
         self.makeProject({"name": "Foo", "version": "1", "dependencies": [
             "Udrian@TypeOCore-0.1.0.dev", "Udrian@TypeD-0.1.0.dev;dev"],
-            "project": [{"Name": "Foo"}, {"Name": "TypeDFoo", "isDev": True}]})
+            "project": [{"Name": "Foo"}, {"Name": "TypeDFoo", "type": "dev"}]})
         self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
         self.assertEqual(self.refs("TypeDFoo"), ["TypeOCore", "TypeDCore", "TypeD"])
@@ -230,10 +240,24 @@ class DoTests(TempDirTestCase):
         self.makeModule("Mocks", "0.1.0")
         self.makeProject({"name": "Foo", "version": "1", "dependencies": [
             "Udrian@TypeOCore-0.1.0.dev", "Udrian@Mocks-0.1.0;test"],
-            "project": [{"Name": "Foo"}, {"Name": "FooTest", "isTest": True}]})
+            "project": [{"Name": "Foo"}, {"Name": "FooTest", "type": "test"}]})
         self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
         self.assertEqual(self.refs("FooTest"), ["TypeOCore", "Mocks"])
+
+    def test_dependency_goes_to_every_project_of_matching_type(self):
+        self.makeModule("TypeOCore", "0.1.0.dev")
+        self.makeModule("TypeD", "0.1.0.dev")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": [
+            "Udrian@TypeOCore-0.1.0.dev", "Udrian@TypeD-0.1.0.dev;dev"],
+            "project": [{"Name": "Foo"}, {"Name": "Extra"}, {"Name": "DevA", "type": "dev"},
+                        {"Name": "DevB", "type": "dev"}, {"Name": "FooTest", "type": "test"}]})
+        self.run_do()
+        self.assertEqual(self.refs("Foo"), ["TypeOCore"])
+        self.assertEqual(self.refs("Extra"), ["TypeOCore"])
+        self.assertEqual(self.refs("DevA"), ["TypeOCore", "TypeD"])
+        self.assertEqual(self.refs("DevB"), ["TypeOCore", "TypeD"])
+        self.assertEqual(self.refs("FooTest"), ["TypeOCore", "TypeD"])
 
     def test_default_cache_path_uses_environment(self):
         variable = "LOCALAPPDATA" if os.name == "nt" else "HOME"

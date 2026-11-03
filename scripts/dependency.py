@@ -18,15 +18,13 @@ def do(args):
             modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('LOCALAPPDATA'))
         else:
             modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('HOME'))
-    csPath = "{}/{}/{}.csproj".format(args.projectPath, project.name, project.name)
     slnPath = "{}/{}.sln".format(args.projectPath, project.name)
+    projectTypes = [sub.type for sub in project.projects]
 
     print("Fetching dependencies for '{}'".format(project.name))
 
     for dependency in project.dependencies:
-        if not project.haveDevModule and dependency.dev:
-            continue
-        if not project.haveTest and dependency.test:
+        if dependency.projectTypes and not any(t in projectTypes for t in dependency.projectTypes):
             continue
         if dependency.local:
             localModulePath = "{}".format(dependency.version)
@@ -37,32 +35,26 @@ def do(args):
             downloadAndExtractDependency(dependency, localModulePath)
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
-        
-        csProjXML = xmler.load(csPath)
-        if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, False, False):
-            xmler.save(csProjXML, csPath)
 
-        if project.haveDevModule:
-            csTypeDPath = "{}/{}/{}.csproj".format(args.projectPath, project.devModuleName, project.devModuleName)
-            csTypeDProjXML = xmler.load(csTypeDPath)
-            if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleProjectPath, dependency, True, False):
-                xmler.save(csTypeDProjXML, csTypeDPath)
-            
-            if not dependency.nuget:
-                dependencyProject = product.load(localModulePath)
-                if(dependencyProject.haveDevModule):
-                    localModuleTypeDProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependencyProject.devModuleName)
+        dependencyDevProjects = []
+        if not dependency.nuget and any(t == "dev" for t in projectTypes):
+            dependencyDevProjects = [sub for sub in product.load(localModulePath).projects if sub.type == "dev"]
+
+        for sub in project.projects:
+            csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
+            csProjXML = xmler.load(csPath)
+            if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, sub.type):
+                xmler.save(csProjXML, csPath)
+
+            if sub.type == "dev":
+                for devProject in dependencyDevProjects:
                     typeDDependency = deepcopy(dependency)
-                    typeDDependency.name = dependencyProject.devModuleName
-                    if manipulateProject(csTypeDProjXML, csTypeDPath, slnPath, localModuleTypeDProjectPath, typeDDependency, True, False):
-                        xmler.save(csTypeDProjXML, csTypeDPath)
+                    typeDDependency.name = devProject.name
+                    localDevProjectPath = "{}/{}".format(localModulePath, devProject.csprojPath)
+                    csProjXML = xmler.load(csPath)
+                    if manipulateProject(csProjXML, csPath, slnPath, localDevProjectPath, typeDDependency, "dev"):
+                        xmler.save(csProjXML, csPath)
 
-        if project.haveTest:
-            csTestPath = "{}/{}/{}.csproj".format(args.projectPath, project.testName, project.testName)
-            csTestProjXML = xmler.load(csTestPath)
-            if manipulateProject(csTestProjXML, csTestPath, slnPath, localModuleProjectPath, dependency, project.haveDevModule, True):
-                xmler.save(csTestProjXML, csTestPath)
-        
 def downloadAndExtractDependency(dependency, localModulePath):
     print("Downloading '{}-{}'".format(dependency.name, dependency.version))
 
@@ -93,10 +85,8 @@ def downloadAndExtractDependency(dependency, localModulePath):
         os.system("bash ./create_project_files.sh")
     os.chdir(oldcwd)
 
-def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, dev, test):
-    if not dev and dependency.dev:
-        return False
-    if not test and dependency.test:
+def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, projectType):
+    if not dependency.appliesTo(projectType):
         return False
     
     if dependency.nuget:

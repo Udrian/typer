@@ -98,9 +98,9 @@ class ProductTests(TempDirTestCase):
 
     def test_projects_list_sets_dev_and_test(self):
         p = self.make({"name": "Foo", "version": "1", "project": [
-            {"Name": "Foo", "isDev": False, "isTest": False},
-            {"Name": "TypeDFoo", "isDev": True, "isTest": False},
-            {"Name": "FooTest", "isDev": False, "isTest": True},
+            {"Name": "Foo", "type": ""},
+            {"Name": "TypeDFoo", "type": "dev"},
+            {"Name": "FooTest", "type": "test"},
         ]})
         self.assertTrue(p.haveDevModule)
         self.assertEqual(p.devModuleName, "TypeDFoo")
@@ -109,7 +109,7 @@ class ProductTests(TempDirTestCase):
 
     def test_projects_list_without_dev_or_test(self):
         p = self.make({"name": "Foo", "version": "1", "project": [
-            {"Name": "Foo", "isDev": False, "isTest": False}
+            {"Name": "Foo", "type": ""}
         ]})
         self.assertFalse(p.haveDevModule)
         self.assertEqual(p.devModuleName, "")
@@ -118,17 +118,17 @@ class ProductTests(TempDirTestCase):
 
     def test_first_dev_and_first_test_project_win(self):
         p = self.make({"name": "Foo", "version": "1", "project": [
-            {"Name": "D1", "isDev": True, "isTest": False},
-            {"Name": "D2", "isDev": True, "isTest": False},
-            {"Name": "T1", "isDev": False, "isTest": True},
-            {"Name": "T2", "isDev": False, "isTest": True},
+            {"Name": "D1", "type": "dev"},
+            {"Name": "D2", "type": "dev"},
+            {"Name": "T1", "type": "test"},
+            {"Name": "T2", "type": "test"},
         ]})
         self.assertEqual(p.devModuleName, "D1")
         self.assertEqual(p.testName, "T1")
 
     def test_project_flags_are_optional(self):
         p = self.make({"name": "Foo", "version": "1", "project": [
-            {"Name": "Foo"}, {"Name": "FooTest", "isTest": True}
+            {"Name": "Foo"}, {"Name": "FooTest", "type": "test"}
         ]})
         self.assertFalse(p.haveDevModule)
         self.assertEqual(p.testName, "FooTest")
@@ -183,8 +183,8 @@ class LoadTests(TempDirTestCase):
         root = self.writeTypeO("", {
             "name": "Foo", "version": "0.1.0", "type": "module",
             "dependencies": ["Udrian@TypeOCore-0.1.0"],
-            "project": [{"Name": "Foo", "isDev": False, "isTest": False},
-                        {"Name": "FooTest", "isDev": False, "isTest": True}]
+            "project": [{"Name": "Foo", "type": ""},
+                        {"Name": "FooTest", "type": "test"}]
         })
         p = product.load(root)
         self.assertEqual(p.name, "Foo")
@@ -209,6 +209,21 @@ class LoadTests(TempDirTestCase):
         self.write("typeo.json", "{ not json")
         with self.assertRaises(json.JSONDecodeError):
             product.load(self.tmp)
+
+
+
+class SubProjectTests(unittest.TestCase):
+    def test_defaults_and_depends_on(self):
+        s = product.SubProject({"Name": "A"})
+        self.assertEqual((s.name, s.type, s.dependsOn, s.csprojPath), ("A", "", [], "A/A.csproj"))
+        s = product.SubProject({"Name": "B", "type": "dev", "depends_on": ["A"]})
+        self.assertEqual((s.type, s.dependsOn), ("dev", ["A"]))
+
+    def test_product_lists_all_projects_and_adds_missing_main(self):
+        p = product.Product({"name": "Foo", "version": "1", "project": [
+            {"Name": "X"}, {"Name": "Y", "type": "test", "depends_on": ["X"]}]}, ".")
+        self.assertEqual([s.name for s in p.projects], ["Foo", "X", "Y"])
+        self.assertEqual(p.testName, "Y")
 
 
 if __name__ == "__main__":

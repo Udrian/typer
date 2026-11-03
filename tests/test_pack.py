@@ -98,7 +98,7 @@ class PackTests(TempDirTestCase):
 
     def test_includes_dev_module_build_output(self):
         self.makeProject({"name": "Foo", "project": [
-            {"Name": "Foo"}, {"Name": "TypeDFoo", "isDev": True}]},
+            {"Name": "Foo"}, {"Name": "TypeDFoo", "type": "dev"}]},
             buildFiles=["Foo/Release/Foo.dll", "TypeDFoo/Release/TypeDFoo.dll", "TypeDFoo/Release/TypeDFoo.xml"])
         self.run_pack()
         names = self.zipNames()

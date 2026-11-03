@@ -61,8 +61,8 @@ def createElement(xml, element, name, content):
         element.appendChild(retEl)
 
 def deleteElement(element, name):
-    child = element.getElementsByTagName(name)[0]
-    element.removeChild(child)
+    for child in element.getElementsByTagName(name):
+        child.parentNode.removeChild(child)
 
 def add(xml, element):
     xml.childNodes[0].appendChild(element)

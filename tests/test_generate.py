@@ -140,7 +140,7 @@ class CreateProjectAndSolutionTests(TempDirTestCase):
 
     def test_test_project_is_created_and_referenced(self):
         project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
-            {"Name": "Foo"}, {"Name": "FooTest", "isTest": True}]})
+            {"Name": "Foo"}, {"Name": "FooTest", "type": "test", "depends_on": ["Foo"]}]})
         self.run_generate(project)
         self.assertIn("dotnet new xunit --name FooTest", self.commands)
         self.assertIn("dotnet add FooTest/FooTest.csproj reference Foo/Foo.csproj", self.commands)
@@ -152,7 +152,7 @@ class CreateProjectAndSolutionTests(TempDirTestCase):
 <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 <TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>""")
         project = makeProject(self.tmp, {"name": "Foo", "version": "1", "type": "module", "project": [
-            {"Name": "Foo"}, {"Name": "TypeDFoo", "isDev": True}]})
+            {"Name": "Foo"}, {"Name": "TypeDFoo", "type": "dev", "depends_on": ["Foo"]}]})
         self.run_generate(project)
         self.assertNotIn("dotnet new avalonia.app --name TypeDFoo", self.commands)
         self.assertIn("dotnet add TypeDFoo/TypeDFoo.csproj reference Foo/Foo.csproj", self.commands)
@@ -169,7 +169,7 @@ class CreateProjectAndSolutionTests(TempDirTestCase):
         self.write("TypeDFoo/App.axaml", "")
         self.write("TypeDFoo/Program.cs", "")
         project = makeProject(self.tmp, {"name": "Foo", "version": "1", "type": "exe", "project": [
-            {"Name": "Foo"}, {"Name": "TypeDFoo", "isDev": True}]})
+            {"Name": "Foo"}, {"Name": "TypeDFoo", "type": "dev"}]})
         self.run_generate(project)
         self.assertIn("dotnet new avalonia.app --name TypeDFoo", self.commands)
         self.assertFalse(os.path.exists("TypeDFoo/App.axaml"))
@@ -179,14 +179,14 @@ class CreateProjectAndSolutionTests(TempDirTestCase):
         self.write("FooTest/Usings.cs", "keep usings")
         self.write("FooTest/UnitTest1.cs", "keep test")
         project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
-            {"Name": "Foo"}, {"Name": "FooTest", "isTest": True}]})
+            {"Name": "Foo"}, {"Name": "FooTest", "type": "test"}]})
         self.run_generate(project)
         self.assertEqual(self.read("FooTest/Usings.cs"), "keep usings")
         self.assertEqual(self.read("FooTest/UnitTest1.cs"), "keep test")
 
     def test_generated_template_test_file_is_removed(self):
         project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
-            {"Name": "Foo"}, {"Name": "FooTest", "isTest": True}]})
+            {"Name": "Foo"}, {"Name": "FooTest", "type": "test"}]})
 
         def fakeExec(command, printout=True):
             self.commands.append(command)
@@ -200,6 +200,55 @@ class CreateProjectAndSolutionTests(TempDirTestCase):
             generate.createProjectAndSolution(project)
         self.assertFalse(os.path.exists("FooTest/UnitTest1.cs"))
         self.assertFalse(os.path.exists("FooTest/Usings.cs"))
+
+
+    def test_projects_without_depends_on_get_no_references(self):
+        project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
+            {"Name": "Foo"}, {"Name": "FooTest", "type": "test"}]})
+        self.run_generate(project)
+        self.assertFalse([c for c in self.commands if " reference " in c])
+
+    def test_multiple_projects_and_dependency_chain(self):
+        project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
+            {"Name": "Foo"},
+            {"Name": "Extra", "type": "", "depends_on": ["Foo"]},
+            {"Name": "FooTest", "type": "test", "depends_on": ["Foo", "Extra"]}]})
+        self.run_generate(project)
+        self.assertEqual([c for c in self.commands if c.startswith("dotnet new")],
+                         ["dotnet new sln --name Foo", "dotnet new classlib --name Foo",
+                          "dotnet new classlib --name Extra", "dotnet new xunit --name FooTest"])
+        references = [c for c in self.commands if " reference " in c]
+        self.assertEqual(references, ["dotnet add Extra/Extra.csproj reference Foo/Foo.csproj",
+                                      "dotnet add FooTest/FooTest.csproj reference Foo/Foo.csproj",
+                                      "dotnet add FooTest/FooTest.csproj reference Extra/Extra.csproj"])
+        for name in ("Foo", "Extra", "FooTest"):
+            self.assertIn("dotnet sln Foo.sln add {0}/{0}.csproj".format(name), self.commands)
+
+    def test_existing_reference_is_not_added_again(self):
+        project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
+            {"Name": "Foo"}, {"Name": "Extra", "depends_on": ["Foo"]}]})
+        self.run_generate(project, existing={("dotnet list Extra/Extra.csproj reference", "Foo/Foo.csproj")})
+        self.assertFalse([c for c in self.commands if " reference " in c])
+
+    def test_main_project_is_added_when_missing_from_list(self):
+        project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [{"Name": "Extra"}]})
+        self.run_generate(project)
+        self.assertIn("dotnet new classlib --name Foo", self.commands)
+        self.assertIn("dotnet new classlib --name Extra", self.commands)
+
+    def test_unknown_dependency_is_rejected_before_anything_is_created(self):
+        project = makeProject(self.tmp, {"name": "Foo", "version": "1", "project": [
+            {"Name": "Foo"}, {"Name": "Extra", "depends_on": ["Nope"]}]})
+        with self.assertRaises(ValueError):
+            self.run_generate(project)
+        self.assertEqual(self.commands, [])
+
+    def test_self_dependency_duplicate_name_and_unknown_type_are_rejected(self):
+        for entries in ([{"Name": "Foo", "depends_on": ["Foo"]}],
+                        [{"Name": "Foo"}, {"Name": "Foo"}],
+                        [{"Name": "Foo"}, {"Name": "Bar", "type": "bogus"}]):
+            with self.assertRaises(ValueError):
+                self.run_generate(makeProject(self.tmp, {"name": "Foo", "version": "1", "project": entries}))
 
 
 class CheckPrerequisitesTests(unittest.TestCase):
@@ -220,8 +269,9 @@ class DoTests(TempDirTestCase):
     def test_do_updates_all_project_files(self):
         self.writeTypeO("proj", {
             "name": "Foo", "version": "1", "externals": ["a.txt", "m.png;test", "d.png;dev"],
-            "project": [{"Name": "Foo"}, {"Name": "TypeDFoo", "isDev": True}, {"Name": "FooTest", "isTest": True}]})
-        for name in ("Foo", "TypeDFoo", "FooTest"):
+            "project": [{"Name": "Foo"}, {"Name": "TypeDFoo", "type": "dev"}, {"Name": "FooTest", "type": "test"},
+                        {"Name": "FooTest2", "type": "test"}]})
+        for name in ("Foo", "TypeDFoo", "FooTest", "FooTest2"):
             self.write("proj/{0}/{0}.csproj".format(name), CSPROJ)
         self.write("proj/Foo.sln", "")
         project = self.path("proj")

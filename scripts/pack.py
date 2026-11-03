@@ -50,7 +50,7 @@ def pack(name, output, project, args):
         addExternal(project.externals, zipObj, "{}/{}".format(args.projectPath, name))
         
         for external in project.externals:
-            print("Could not find external file: '{}'".format(external))
+            print("Could not find external file: '{}'".format(external.path))
 
         #Add readme and releasenotes
         print("Adding extra files to zip")
@@ -60,9 +60,9 @@ def pack(name, output, project, args):
 
 def addExternal(externals, zipObj, path):
     for external in externals.copy():
-        externalPath = "{}/{}".format(path, external)
+        externalPath = "{}/{}".format(path, external.path)
         if isdir(externalPath):
-            print("Checking project external '{}' to zip".format(external))
+            print("Checking project external '{}' to zip".format(external.path))
         
         if isfile(externalPath):
             if addFileToZip(zipObj, "{}".format(externalPath), ""):
@@ -70,7 +70,7 @@ def addExternal(externals, zipObj, path):
         
         if isdir(externalPath):
             for filename in os.listdir(externalPath):
-                if addFileToZip(zipObj, "{}/{}".format(externalPath, filename), ""):
+                if addFileToZip(zipObj, "{}/{}".format(externalPath, filename), "") and external in externals:
                     externals.remove(external)
 
 def addFileToZip(zipObj, filepath, pathTo):

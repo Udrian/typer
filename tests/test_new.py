@@ -13,8 +13,7 @@ def parser():
 
 def makeArgs(**overrides):
     values = dict(name="Foo", output=".", git=None, disableGit=True, noCommit=True, version="0.1.0",
-                  dependencies="", type="module", clean=False, test=False, testName="",
-                  dev=False, devModuleName="")
+                  dependencies="", type="module", clean=False)
     values.update(overrides)
     return argparse.Namespace(**values)
 
@@ -30,9 +29,7 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(args.version, "0.1.0")
         self.assertEqual(args.dependencies, "")
         self.assertEqual(args.type, "module")
-        self.assertFalse(args.clean or args.test or args.dev)
-        self.assertEqual(args.testName, "")
-        self.assertEqual(args.devModuleName, "")
+        self.assertFalse(args.clean)
 
     def test_name_and_output_required(self):
         with self.assertRaises(SystemExit):
@@ -44,15 +41,12 @@ class ParseTests(unittest.TestCase):
 
     def test_all_options(self):
         args = parser().parse_args(["-n", "Foo", "-o", "out", "-g", "url", "--disableGit", "--noCommit",
-                                    "-v", "2.0.0", "-d", "A-1 B-2", "-t", "exe", "--clean", "--test",
-                                    "--testName", "T", "--dev", "--devModuleName", "D"])
+                                    "-v", "2.0.0", "-d", "A-1 B-2", "-t", "exe", "--clean"])
         self.assertEqual(args.git, "url")
-        self.assertTrue(args.disableGit and args.noCommit and args.clean and args.test and args.dev)
+        self.assertTrue(args.disableGit and args.noCommit and args.clean)
         self.assertEqual(args.version, "2.0.0")
         self.assertEqual(args.dependencies, "A-1 B-2")
         self.assertEqual(args.type, "exe")
-        self.assertEqual(args.testName, "T")
-        self.assertEqual(args.devModuleName, "D")
 
     def test_type_accepts_module_and_exe_only(self):
         for value in ("module", "exe"):
@@ -122,36 +116,24 @@ class AddExtraFilesTests(TempDirTestCase):
         self.assertEqual(data["externals"], [])
         self.assertEqual(data["type"], "module")
         self.assertEqual(data["dependencies"], ["Udrian@TypeOCore-0.1.0"])
-        self.assertEqual(data["project"], [{"Name": "Foo", "isDev": False, "isTest": False}])
+        self.assertEqual(data["project"], [{"Name": "Foo", "type": "", "depends_on": []}])
         self.assertNotIn("devModuleName", data)
         self.assertNotIn("testName", data)
 
-    def test_default_dev_project(self):
-        new.addExtraFiles(makeArgs(name="TypeOFoo", dev=True))
-        data = self.typeo()
-        self.assertIn({"Name": "TypeDFoo", "isDev": True, "isTest": False}, data["project"])
-        self.assertEqual(data["dependencies"], ["Udrian@TypeOCore-0.1.0", "Udrian@TypeD-0.1.0;dev"])
-
-    def test_custom_dev_project_name(self):
-        new.addExtraFiles(makeArgs(dev=True, devModuleName="MyDev"))
-        self.assertIn({"Name": "MyDev", "isDev": True, "isTest": False}, self.typeo()["project"])
-
-    def test_default_test_project(self):
-        new.addExtraFiles(makeArgs(test=True))
-        self.assertIn({"Name": "FooTest", "isDev": False, "isTest": True}, self.typeo()["project"])
-
-    def test_custom_test_project_name(self):
-        new.addExtraFiles(makeArgs(test=True, testName="MyTests"))
-        self.assertIn({"Name": "MyTests", "isDev": False, "isTest": True}, self.typeo()["project"])
-
-    def test_dev_and_test_projects_load_back_through_product(self):
-        new.addExtraFiles(makeArgs(name="TypeOFoo", dev=True, test=True))
+    def test_only_default_project_is_created(self):
+        new.addExtraFiles(makeArgs(name="TypeOFoo"))
         p = product.load(self.tmp)
-        self.assertEqual((p.haveDevModule, p.devModuleName), (True, "TypeDFoo"))
-        self.assertEqual((p.haveTest, p.testName), (True, "TypeOFooTest"))
+        self.assertEqual([(s.name, s.type) for s in p.projects], [("TypeOFoo", "")])
+        self.assertEqual((p.haveDevModule, p.haveTest), (False, False))
+
+    def test_dev_and_test_options_are_gone(self):
+        for option in ("--dev", "--devModuleName", "--test", "--testName"):
+            with self.assertRaises(SystemExit):
+                with mock.patch("sys.stderr"):
+                    parser().parse_args(["-n", "F", "-o", "o", option])
 
     def test_explicit_dependencies_replace_defaults(self):
-        new.addExtraFiles(makeArgs(dependencies="A-1.0 B-2.0;nuget", dev=True))
+        new.addExtraFiles(makeArgs(dependencies="A-1.0 B-2.0;nuget"))
         self.assertEqual(self.typeo()["dependencies"], ["A-1.0", "B-2.0;nuget"])
 
     def test_type_exe(self):
@@ -198,8 +180,8 @@ class CodeFileTests(TempDirTestCase):
         os.chdir(self.tmp)
         self.project = product.Product({"name": "TypeOFoo", "version": "1", "project": [
             {"Name": "TypeOFoo"},
-            {"Name": "TypeDFoo", "isDev": True},
-            {"Name": "TypeOFooTest", "isTest": True},
+            {"Name": "TypeDFoo", "type": "dev"},
+            {"Name": "TypeOFooTest", "type": "test"},
         ]}, self.tmp)
         for name in ("TypeOFoo", "TypeDFoo", "TypeOFooTest"):
             os.mkdir(name)
@@ -309,13 +291,6 @@ class DoTests(TempDirTestCase):
     def test_clean_skips_code_files(self):
         root = self.run_do(name="TypeOFoo", clean=True)
         self.assertFalse(os.path.exists(os.path.join(root, "TypeOFoo", "TypeOFooModule.cs")))
-
-    def test_dev_and_test_code_files(self):
-        root = self.run_do(name="TypeOFoo", dev=True, test=True)
-        for relative in ("TypeDFoo/TypeDFooInitializer.cs", "TypeOFooTest/TypeOFooModuleTest.cs",
-                         "TypeOFooTest/Usings.cs", "TypeOFooTest/TypeDMock.cs",
-                         "TypeOFooTest/TypeDFooModuleTest.cs"):
-            self.assertTrue(os.path.isfile(os.path.join(root, *relative.split("/"))), relative)
 
     def test_git_enabled_stages_and_commits_initial(self):
         args = makeArgs(output=self.tmp, name="TypeOFoo", disableGit=False, noCommit=True)
