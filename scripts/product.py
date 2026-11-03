@@ -1,4 +1,4 @@
-import json, os
+import json, os, re
 
 def overrideKey(dependencyString):
     # A plain and a ;dev/;test entry for the same name are separate dependencies
@@ -110,12 +110,15 @@ class Dependency:
                     and "dev" not in allProjectTypes)
 
     def __init__(self, dependencyString):
-        if "@" in dependencyString:
-            self.author = dependencyString.split("-")[0].split("@")[0]
-            self.name = dependencyString.split("-")[0].split("@")[1]
+        # Only the first '-' separates name and version, local paths may contain more
+        nameAuthor, separator, version = dependencyString.partition("-")
+        if not separator:
+            raise IndexError(dependencyString)
+        if "@" in nameAuthor:
+            self.author, self.name = nameAuthor.split("@", 1)
         else:
-            self.name = dependencyString.split("-")[0]
-        self.version = dependencyString.split("-")[1]
+            self.name = nameAuthor
+        self.version = version
         self.Params = []
         self.projectTypes = []
         if ";" in self.version:
@@ -153,6 +156,25 @@ def readJson(projectPath):
 def writeJson(projectPath, data):
     with open("{}/typeo.json".format(projectPath), "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def readOverrides(projectPath):
+    path = "{}/typeo_override.json".format(projectPath)
+    if not os.path.exists(path):
+        return []
+    with open(path) as f:
+        return json.load(f)
+
+def writeOverrides(projectPath, overrides):
+    with open("{}/typeo_override.json".format(projectPath), "w") as f:
+        json.dump(overrides, f, ensure_ascii=False, indent=2)
+
+def versionKey(version):
+    return tuple(int(n) for n in re.findall(r"\d+", version))
+
+def latestVersion(versions):
+    """Returns the highest plain release version, ignoring branch tags such as '1.0.0.feature'."""
+    releases = [v for v in versions if re.fullmatch(r"\d+(\.\d+)*", v)]
+    return max(releases, key=versionKey) if releases else None
 
 def load(projectPath):
     path = "{}/typeo.json".format(projectPath)

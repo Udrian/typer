@@ -1,4 +1,4 @@
-from scripts import build, pack, upload, dependency, new, generate, list, addproject, removeproject, adddependency, removedependency
+from scripts import build, pack, upload, dependency, new, generate, list, addproject, removeproject, adddependency, removedependency, modules, dependencies, update, addoverride, removeoverride
 import argparse
 
 def run_command(parser, args):
@@ -24,6 +24,16 @@ def run_command(parser, args):
         adddependency.do(args)
     elif args.command == 'removedependency':
         removedependency.do(args)
+    elif args.command == 'modules':
+        modules.do(args)
+    elif args.command == 'dependencies':
+        dependencies.do(args)
+    elif args.command == 'update':
+        update.do(args)
+    elif args.command == 'addoverride':
+        addoverride.do(args)
+    elif args.command == 'removeoverride':
+        removeoverride.do(args)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -45,6 +55,11 @@ def main():
     removeproject.parse(AddParser('removeproject', "Removes a project from the project list in typeo.json"))
     adddependency.parse(AddParser('adddependency', "Adds a dependency to typeo.json"))
     removedependency.parse(AddParser('removedependency', "Removes a dependency from typeo.json"))
+    modules.   parse(AddParser('modules',    "Lists all registered modules and their versions as json"))
+    dependencies.parse(AddParser('dependencies', "Lists the dependencies of a project as json"))
+    update.    parse(AddParser('update',     "Updates dependencies in typeo.json to the latest or a given version"))
+    addoverride.parse(AddParser('addoverride', "Overrides a dependency with a local module in typeo_override.json"))
+    removeoverride.parse(AddParser('removeoverride', "Removes a dependency override from typeo_override.json"))
     
     args = parser.parse_args()
     if args.command is not None:

@@ -52,6 +52,21 @@ class MainTests(unittest.TestCase):
     def test_removedependency(self):
         self.assert_dispatch("removedependency", ["-p", "proj", "-n", "A"], {"projectPath": "proj", "name": "A"})
 
+    def test_modules(self):
+        self.assert_dispatch("modules", ["-r", "reg.json"], {"registry": "reg.json"})
+
+    def test_dependencies(self):
+        self.assert_dispatch("dependencies", ["-p", "proj"], {"projectPath": "proj"})
+
+    def test_update(self):
+        self.assert_dispatch("update", ["-p", "proj", "-n", "A", "-v", "2"], {"projectPath": "proj", "name": "A", "version": "2"})
+
+    def test_addoverride(self):
+        self.assert_dispatch("addoverride", ["-p", "proj", "-n", "A", "-l", "../a"], {"projectPath": "proj", "name": "A", "localPath": "../a"})
+
+    def test_removeoverride(self):
+        self.assert_dispatch("removeoverride", ["-p", "proj", "-n", "A"], {"projectPath": "proj", "name": "A"})
+
     def test_only_the_selected_command_runs(self):
         patches = {name: mock.patch("scripts.{}.do".format(name)) for name in
                    ("build", "pack", "upload", "dependency", "new", "generate", "list", "addproject", "removeproject", "adddependency", "removedependency")}
