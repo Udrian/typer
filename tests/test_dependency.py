@@ -259,6 +259,81 @@ class DoTests(TempDirTestCase):
         self.assertEqual(self.refs("DevB"), ["TypeOCore", "TypeD"])
         self.assertEqual(self.refs("FooTest"), ["TypeOCore", "TypeD"])
 
+    def csproj(self, name):
+        return xmler.load(self.path("proj", name, name + ".csproj"))
+
+    def packages(self, name):
+        return [p.getAttribute("Include") for p in self.csproj(name).getElementsByTagName("PackageReference")]
+
+    def test_removed_module_dependency_is_removed_from_project_and_solution(self):
+        self.makeModule("TypeOCore", "0.1.0.dev")
+        self.makeModule("Other", "1.0")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": [
+            "Udrian@TypeOCore-0.1.0.dev", "Udrian@Other-1.0"]})
+        self.run_do()
+        self.assertEqual(self.refs("Foo"), ["TypeOCore", "Other"])
+
+        self.writeTypeO("proj", {"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})
+        system, _ = self.run_do()
+        self.assertEqual(self.refs("Foo"), ["TypeOCore"])
+        system.assert_called_once_with("dotnet sln {}/Foo.sln remove {}/Other/1.0/Other/Other.csproj".format(self.proj, self.cache))
+
+    def test_removing_all_dependencies_removes_the_module_group(self):
+        self.makeModule("TypeOCore", "0.1.0.dev")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})
+        self.run_do()
+        self.writeTypeO("proj", {"name": "Foo", "version": "1", "dependencies": []})
+        self.run_do()
+        self.assertEqual(self.refs("Foo"), [])
+        self.assertEqual(self.csproj("Foo").getElementsByTagName("ItemGroup"), [])
+
+    def test_shared_module_stays_in_solution_while_another_project_uses_it(self):
+        self.makeModule("TypeOCore", "0.1.0.dev")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev;test"],
+                          "project": [{"Name": "Foo"}, {"Name": "FooTest", "type": "test"}]})
+        self.run_do()
+        self.assertEqual((self.refs("Foo"), self.refs("FooTest")), ([], ["TypeOCore"]))
+        self.writeTypeO("proj", {"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"],
+                                 "project": [{"Name": "Foo"}, {"Name": "FooTest", "type": "test"}]})
+        system, _ = self.run_do()
+        self.assertEqual((self.refs("Foo"), self.refs("FooTest")), (["TypeOCore"], ["TypeOCore"]))
+        self.assertNotIn("remove", " ".join(c.args[0] for c in system.call_args_list))
+
+    def test_project_references_without_a_name_are_never_removed(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": []})
+        self.write("proj/Foo/Foo.csproj", CSPROJ.replace("</Project>",
+                   '<ItemGroup><ProjectReference Include="../Bar/Bar.csproj"/></ItemGroup></Project>'))
+        system, _ = self.run_do()
+        system.assert_not_called()
+        self.assertEqual(len(self.csproj("Foo").getElementsByTagName("ProjectReference")), 1)
+
+    def test_stale_nuget_package_is_removed_through_dotnet(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Keep-1.0;nuget"]})
+        self.write("proj/Foo/Foo.csproj", CSPROJ.replace("</Project>",
+                   '<ItemGroup><PackageReference Include="Keep" Version="1.0"/>'
+                   '<PackageReference Include="Old" Version="2.0"/></ItemGroup></Project>'))
+        system, _ = self.run_do()
+        system.assert_called_once_with("dotnet remove {}/Foo/Foo.csproj package Old".format(self.proj))
+
+    def test_nuget_packages_are_kept_for_matching_project_types_only(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Dev-1.0;nuget;dev", "Tst-1.0;nuget;test"],
+                          "project": [{"Name": "Foo"}, {"Name": "FooDev", "type": "dev"}, {"Name": "FooTest", "type": "test"}]})
+        both = '<ItemGroup><PackageReference Include="Dev" Version="1.0"/><PackageReference Include="Tst" Version="1.0"/></ItemGroup>'
+        for name in ("Foo", "FooDev", "FooTest"):
+            self.write("proj/{0}/{0}.csproj".format(name), CSPROJ.replace("</Project>", both + "</Project>"))
+        system, _ = self.run_do()
+        commands = sorted(c.args[0].replace(self.proj, "") for c in system.call_args_list)
+        self.assertEqual(commands, ["dotnet remove /Foo/Foo.csproj package Dev",
+                                    "dotnet remove /Foo/Foo.csproj package Tst",
+                                    "dotnet remove /FooDev/FooDev.csproj package Tst"])
+
+    def test_no_dependencies_means_all_nuget_packages_are_removed(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": []})
+        self.write("proj/Foo/Foo.csproj", CSPROJ.replace("</Project>",
+                   '<ItemGroup><PackageReference Include="A" Version="1"/></ItemGroup></Project>'))
+        system, _ = self.run_do()
+        system.assert_called_once_with("dotnet remove {}/Foo/Foo.csproj package A".format(self.proj))
+
     def test_default_cache_path_uses_environment(self):
         variable = "LOCALAPPDATA" if os.name == "nt" else "HOME"
         base = self.path("home")

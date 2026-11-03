@@ -1,4 +1,4 @@
-from scripts import build, pack, upload, dependency, new, generate, list, addproject, removeproject
+from scripts import build, pack, upload, dependency, new, generate, list, addproject, removeproject, adddependency, removedependency
 import argparse
 
 def run_command(parser, args):
@@ -20,6 +20,10 @@ def run_command(parser, args):
         addproject.do(args)
     elif args.command == 'removeproject':
         removeproject.do(args)
+    elif args.command == 'adddependency':
+        adddependency.do(args)
+    elif args.command == 'removedependency':
+        removedependency.do(args)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -39,6 +43,8 @@ def main():
     list.      parse(AddParser('list',       "List all versions for a module"))
     addproject.parse(AddParser('addproject', "Adds a project to the project list in typeo.json"))
     removeproject.parse(AddParser('removeproject', "Removes a project from the project list in typeo.json"))
+    adddependency.parse(AddParser('adddependency', "Adds a dependency to typeo.json"))
+    removedependency.parse(AddParser('removedependency', "Removes a dependency from typeo.json"))
     
     args = parser.parse_args()
     if args.command is not None:

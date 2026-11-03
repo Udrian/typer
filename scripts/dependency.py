@@ -23,6 +23,9 @@ def do(args):
 
     print("Fetching dependencies for '{}'".format(project.name))
 
+    expectedModules = {sub.name: {} for sub in project.projects}
+    expectedNugets = {sub.name: set() for sub in project.projects}
+
     for dependency in project.dependencies:
         if dependency.projectTypes and not any(t in projectTypes for t in dependency.projectTypes):
             continue
@@ -42,6 +45,11 @@ def do(args):
 
         for sub in project.projects:
             csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
+            if dependency.appliesTo(sub.type):
+                if dependency.nuget:
+                    expectedNugets[sub.name].add(dependency.name)
+                else:
+                    expectedModules[sub.name][dependency.name] = localModuleProjectPath
             csProjXML = xmler.load(csPath)
             if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, sub.type):
                 xmler.save(csProjXML, csPath)
@@ -51,9 +59,44 @@ def do(args):
                     typeDDependency = deepcopy(dependency)
                     typeDDependency.name = devProject.name
                     localDevProjectPath = "{}/{}".format(localModulePath, devProject.csprojPath)
+                    if typeDDependency.appliesTo("dev"):
+                        expectedModules[sub.name][devProject.name] = localDevProjectPath
                     csProjXML = xmler.load(csPath)
                     if manipulateProject(csProjXML, csPath, slnPath, localDevProjectPath, typeDDependency, "dev"):
                         xmler.save(csProjXML, csPath)
+
+    removedIncludes = set()
+    for sub in project.projects:
+        csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
+        removedIncludes |= removeStaleDependencies(csPath, expectedModules[sub.name], expectedNugets[sub.name])
+
+    stillUsed = {include for modules in expectedModules.values() for include in modules.values()}
+    for include in removedIncludes - stillUsed:
+        os.system("dotnet sln {} remove {}".format(slnPath, include))
+
+def removeStaleDependencies(csPath, expectedModules, expectedNugets):
+    """Removes TypeO module and nuget references that are no longer dependencies. Returns the removed module project paths."""
+    csProjXML = xmler.load(csPath)
+
+    removedIncludes = set()
+    for reference in csProjXML.getElementsByTagName("ProjectReference"):
+        group = reference.parentNode
+        if group.getAttribute("Label") != "TypeOModules" or reference.getAttribute("Name") in expectedModules:
+            continue
+        removedIncludes.add(reference.getAttribute("Include"))
+        group.removeChild(reference)
+        if not group.getElementsByTagName("ProjectReference"):
+            group.parentNode.removeChild(group)
+
+    staleNugets = [p.getAttribute("Include") for p in csProjXML.getElementsByTagName("PackageReference")
+                   if p.getAttribute("Include") not in expectedNugets]
+
+    if removedIncludes:
+        xmler.save(csProjXML, csPath)
+    for name in staleNugets:
+        os.system("dotnet remove {} package {}".format(csPath, name))
+
+    return removedIncludes
 
 def downloadAndExtractDependency(dependency, localModulePath):
     print("Downloading '{}-{}'".format(dependency.name, dependency.version))
