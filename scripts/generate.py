@@ -1,6 +1,18 @@
 import os
 from scripts import product, xmler, cmd
 
+def find_solution_file(projectPath, projectName):
+    """Find the solution file, checking for both .sln and .slnx formats"""
+    sln_path = "{}.sln".format(projectName)
+    slnx_path = "{}.slnx".format(projectName)
+    
+    if os.path.exists(sln_path):
+        return sln_path
+    elif os.path.exists(slnx_path):
+        return slnx_path
+    else:
+        return sln_path  # Default to .sln if neither exists
+
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True,       help="Path to project")
 
@@ -67,7 +79,7 @@ def validateProjects(project):
 
 def createProjectAndSolution(project):
     validateProjects(project)
-    slnFile = "{}.sln".format(project.name)
+    slnFile = find_solution_file(".", project.name)
 
     if not os.path.exists(slnFile):
         cmd.exec("dotnet new sln --name {}".format(project.name))

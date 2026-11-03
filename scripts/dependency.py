@@ -1,6 +1,18 @@
 import os, urllib.request, zipfile, shutil
 from scripts import product, xmler
 from copy import deepcopy
+
+def find_solution_file(projectPath, projectName):
+    """Find the solution file, checking for both .sln and .slnx formats"""
+    sln_path = "{}/{}.sln".format(projectPath, projectName)
+    slnx_path = "{}/{}.slnx".format(projectPath, projectName)
+    
+    if os.path.exists(sln_path):
+        return sln_path
+    elif os.path.exists(slnx_path):
+        return slnx_path
+    else:
+        return sln_path  # Default to .sln if neither exists
  
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
@@ -18,7 +30,7 @@ def do(args):
             modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('LOCALAPPDATA'))
         else:
             modulecachepath = "{}/TypeO/ModulesCache".format(os.getenv('HOME'))
-    slnPath = "{}/{}.sln".format(args.projectPath, project.name)
+    slnPath = find_solution_file(args.projectPath, project.name)
     projectTypes = [sub.type for sub in project.projects]
 
     print("Fetching dependencies for '{}'".format(project.name))

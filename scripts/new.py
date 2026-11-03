@@ -40,6 +40,7 @@ def addExtraFiles(args):
                 "# TypeO\n",
                 "typeo_override.json\n",
                 "*.sln\n",
+                "*.slnx\n",
                 "*.csproj"
             ])
 

@@ -1,6 +1,18 @@
 import os, sys
 from scripts import product, cmd
 
+def find_solution_file(projectPath, projectName):
+    """Find the solution file, checking for both .sln and .slnx formats"""
+    sln_path = "{}/{}.sln".format(projectPath, projectName)
+    slnx_path = "{}/{}.slnx".format(projectPath, projectName)
+    
+    if os.path.exists(sln_path):
+        return sln_path
+    elif os.path.exists(slnx_path):
+        return slnx_path
+    else:
+        return sln_path  # Default to .sln if neither exists
+
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
     parser.add_argument('-n', '--name',        type=str, required=True, help="Name of the project to remove")
@@ -21,14 +33,15 @@ def removeProject(projectPath, name):
     product.writeJson(projectPath, data)
 
 def removeFromSolution(projectPath, solutionName, name):
-    slnFile = "{}/{}.sln".format(projectPath, solutionName)
+    slnFile = find_solution_file(projectPath, solutionName)
     csProjFile = "{0}/{0}.csproj".format(name)
     if os.path.exists(slnFile):
         oldcwd = os.getcwd()
         os.chdir(projectPath)
         try:
-            if cmd.exist("dotnet sln {}.sln list".format(solutionName), csProjFile):
-                cmd.exec("dotnet sln {}.sln remove {}".format(solutionName, csProjFile))
+            # Use the actual solution filename
+            if cmd.exist("dotnet sln {} list".format(os.path.basename(slnFile)), csProjFile):
+                cmd.exec("dotnet sln {} remove {}".format(os.path.basename(slnFile), csProjFile))
         finally:
             os.chdir(oldcwd)
 
