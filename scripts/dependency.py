@@ -139,14 +139,18 @@ def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, depend
     return resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency)
 
 def resolveNuget(csProjXML, csPath, dependency):
-    nugetItemGroup = xmler.getElementWithNameAndNoAttribute(csProjXML, "ItemGroup")
-
     dontAdd = False
-    if nugetItemGroup != 0:
-        for nuget in nugetItemGroup.getElementsByTagName('PackageReference'):
-            if nuget.getAttribute('Include') == dependency.name and nuget.getAttribute('Version') == dependency.version:
-                dontAdd = True
-                break
+    for nuget in csProjXML.getElementsByTagName('PackageReference'):
+        if nuget.getAttribute('Include').lower() != dependency.name.lower():
+            continue
+        version = nuget.getAttribute('Version')
+        if not version:
+            versionNodes = nuget.getElementsByTagName('Version')
+            if versionNodes and versionNodes[0].firstChild:
+                version = versionNodes[0].firstChild.data
+        if version.strip() == dependency.version:
+            dontAdd = True
+            break
 
     if not dontAdd:
         os.system("dotnet add {} package {} -v {}".format(csPath, dependency.name, dependency.version))
