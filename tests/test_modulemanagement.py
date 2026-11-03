@@ -43,6 +43,13 @@ class DependenciesTests(TempDirTestCase):
         self.assertTrue(result[("Pkg", ())]["nuget"])
         self.assertFalse(result[("TypeD", ("dev",))]["overridden"])
 
+    def test_relative_local_paths_are_resolved_from_main_project_folder(self):
+        root = self.writeTypeO("p", {"name": "P", "version": "1", "dependencies": ["Udrian@TypeOTK-0.1.0"],
+            "project": [{"Name": "P", "type": ""}]}, override=["Udrian@TypeOTK-../../typeotk;local"])
+        os.makedirs(os.path.join(root, "P"))
+        self.assertEqual(dependencies.dependencies(root)[0]["localPath"],
+                         os.path.normpath(os.path.join(root, "..", "typeotk")).replace("\\", "/"))
+
 
 class OverrideTests(TempDirTestCase):
     def setUp(self):

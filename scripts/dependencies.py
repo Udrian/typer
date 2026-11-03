@@ -1,4 +1,5 @@
 import json
+import os
 from scripts import product
 
 def parse(parser):
@@ -6,6 +7,15 @@ def parse(parser):
 
 def key(dependency):
     return (dependency.name, frozenset(dependency.projectTypes))
+
+def localBase(projectPath):
+    """Relative local paths are written from the folder of the project's main csproj (where typer runs when building)."""
+    projects = product.readJson(projectPath).get("project", [])
+    if projects:
+        base = os.path.join(projectPath, projects[0]["Name"])
+        if os.path.isdir(base):
+            return base
+    return projectPath
 
 def dependencies(projectPath):
     """Returns the effective dependencies of a project, with the declared version and the local path of any override."""
@@ -22,7 +32,7 @@ def dependencies(projectPath):
             "tags": dependency.projectTypes,
             "nuget": dependency.nuget,
             "overridden": key(dependency) in overridden,
-            "localPath": dependency.version if dependency.local else ""
+            "localPath": os.path.normpath(os.path.join(localBase(projectPath), dependency.version)).replace("\\", "/") if dependency.local else ""
         })
     return retval
 
