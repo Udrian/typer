@@ -152,22 +152,21 @@ def addExternals(csProjXML, project, dev, test):
         contentItemGroup.appendChild(content)
 
 def addTypeoConfigFiles(csProjXML):
-    configFiles = ["typeo.json", "typeo_override.json"]
+    configFiles = ["../typeo.json", "../typeo_override.json"]
     
     for configFile in configFiles:
-        if os.path.exists(configFile):
-            noneItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOConfig")
-            
-            dontAdd = False
-            for none in noneItemGroup.getElementsByTagName('None'):
-                if none.getAttribute('Include') == configFile:
-                    dontAdd = True
-                    break
-            
-            if not dontAdd:
-                noneElement = csProjXML.createElement("None")
-                noneElement.setAttribute("Include", configFile)
-                noneItemGroup.appendChild(noneElement)
+        noneItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOConfig")
+        
+        dontAdd = False
+        for none in noneItemGroup.getElementsByTagName('None'):
+            if none.getAttribute('Include') == configFile:
+                dontAdd = True
+                break
+        
+        if not dontAdd:
+            noneElement = csProjXML.createElement("None")
+            noneElement.setAttribute("Include", configFile)
+            noneItemGroup.appendChild(noneElement)
 
 def do(args):
     project = product.load(args.projectPath)
