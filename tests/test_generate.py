@@ -100,6 +100,48 @@ class AddExternalsTests(TempDirTestCase):
         self.assertEqual(self.includes(dev), ["a.txt", "dev.png"])
 
 
+class AddTypeoConfigFilesTests(TempDirTestCase):
+    def test_adds_typeo_json_when_present(self):
+        self.write("typeo.json", "{}")
+        xml = parseXml()
+        os.chdir(self.tmp)
+        generate.addTypeoConfigFiles(xml)
+        self.assertEqual([n.getAttribute("Include") for n in xml.getElementsByTagName("None")], ["typeo.json"])
+        group = xml.getElementsByTagName("ItemGroup")[0]
+        self.assertEqual(group.getAttribute("Label"), "TypeOConfig")
+
+    def test_adds_typeo_override_json_when_present(self):
+        self.write("typeo_override.json", "[]")
+        xml = parseXml()
+        os.chdir(self.tmp)
+        generate.addTypeoConfigFiles(xml)
+        self.assertEqual([n.getAttribute("Include") for n in xml.getElementsByTagName("None")], ["typeo_override.json"])
+
+    def test_adds_both_when_present(self):
+        self.write("typeo.json", "{}")
+        self.write("typeo_override.json", "[]")
+        xml = parseXml()
+        os.chdir(self.tmp)
+        generate.addTypeoConfigFiles(xml)
+        includes = [n.getAttribute("Include") for n in xml.getElementsByTagName("None")]
+        self.assertIn("typeo.json", includes)
+        self.assertIn("typeo_override.json", includes)
+
+    def test_does_not_add_when_files_missing(self):
+        xml = parseXml()
+        os.chdir(self.tmp)
+        generate.addTypeoConfigFiles(xml)
+        self.assertEqual(xml.getElementsByTagName("None"), [])
+
+    def test_does_not_duplicate_on_repeat(self):
+        self.write("typeo.json", "{}")
+        xml = parseXml()
+        os.chdir(self.tmp)
+        generate.addTypeoConfigFiles(xml)
+        generate.addTypeoConfigFiles(xml)
+        self.assertEqual(len(xml.getElementsByTagName("None")), 1)
+
+
 class CreateProjectAndSolutionTests(TempDirTestCase):
     def setUp(self):
         super().setUp()

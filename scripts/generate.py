@@ -115,16 +115,15 @@ def addPreBuildEvents(csProjXML):
         {"name": "BeforeTargets", "value": "PreBuildEvent"}
     ])
 
-    xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
+    windowsExec = xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
         {"name": "Condition", "value": "!$([MSBuild]::IsOSUnixLike())"},
         {"name": "Command",   "value": "cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;"}
     ])
-    xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
+    
+    unixExec = xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
         {"name": "Condition", "value": "$([MSBuild]::IsOSUnixLike())"},
         {"name": "Command",   "value": "bash &quot;$(ProjectDir)../typer/typer.sh&quot; dependency -p &quot;$(ProjectDir)../&quot;"}
     ])
-
-    xmler.add(csProjXML, target)
 
 def addExternals(csProjXML, project, dev, test):
     if not project.externals:
@@ -152,6 +151,24 @@ def addExternals(csProjXML, project, dev, test):
         xmler.getOrCreateElementWithValue(csProjXML, content, "CopyToOutputDirectory", "PreserveNewest")
         contentItemGroup.appendChild(content)
 
+def addTypeoConfigFiles(csProjXML):
+    configFiles = ["typeo.json", "typeo_override.json"]
+    
+    for configFile in configFiles:
+        if os.path.exists(configFile):
+            noneItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOConfig")
+            
+            dontAdd = False
+            for none in noneItemGroup.getElementsByTagName('None'):
+                if none.getAttribute('Include') == configFile:
+                    dontAdd = True
+                    break
+            
+            if not dontAdd:
+                noneElement = csProjXML.createElement("None")
+                noneElement.setAttribute("Include", configFile)
+                noneItemGroup.appendChild(noneElement)
+
 def do(args):
     project = product.load(args.projectPath)
     os.chdir(args.projectPath)
@@ -165,4 +182,5 @@ def do(args):
             addDefaultVar(csProjXML)
             addPreBuildEvents(csProjXML)
         addExternals(csProjXML, project, sub.type == "dev", sub.type == "test")
+        addTypeoConfigFiles(csProjXML)
         xmler.save(csProjXML, csPath)
