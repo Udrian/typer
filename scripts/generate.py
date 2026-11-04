@@ -83,6 +83,7 @@ def createProjectAndSolution(project):
 
     if not os.path.exists(slnFile):
         cmd.exec("dotnet new sln --name {}".format(project.name))
+        slnFile = find_solution_file(".", project.name)
 
     for sub in project.projects:
         if sub.type == "dev":

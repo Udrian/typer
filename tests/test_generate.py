@@ -133,6 +133,28 @@ class CreateProjectAndSolutionTests(TempDirTestCase):
                           existing={("dotnet sln Foo.sln list", "Foo/Foo.csproj")})
         self.assertEqual(self.commands, [])
 
+    def test_slnx_created_by_sdk_is_used_for_adding_projects(self):
+        def fakeExec(command, printout=True):
+            self.commands.append(command)
+            if command.startswith("dotnet new sln"):
+                self.write("Foo.slnx", "")
+            return ""
+
+        with mock.patch("scripts.generate.cmd.exec", side_effect=fakeExec), \
+                mock.patch("scripts.generate.cmd.exist", return_value=False):
+            generate.createProjectAndSolution(makeProject(self.tmp, {"name": "Foo", "version": "1"}))
+        self.assertEqual(self.commands, [
+            "dotnet new sln --name Foo",
+            "dotnet new classlib --name Foo",
+            "dotnet sln Foo.slnx add Foo/Foo.csproj",
+        ])
+
+    def test_existing_slnx_solution_is_reused(self):
+        self.write("Foo.slnx", "")
+        self.write("Foo/Foo.csproj", CSPROJ)
+        self.run_generate(makeProject(self.tmp, {"name": "Foo", "version": "1"}))
+        self.assertEqual(self.commands, ["dotnet sln Foo.slnx add Foo/Foo.csproj"])
+
     def test_template_class_file_is_removed(self):
         self.write("Foo/Class1.cs", "")
         self.run_generate(makeProject(self.tmp, {"name": "Foo", "version": "1"}))
