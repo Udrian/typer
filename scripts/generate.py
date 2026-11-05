@@ -104,10 +104,21 @@ def createProjectAndSolution(project):
         if not cmd.exist("dotnet sln {} list".format(slnFile), sub.csprojPath):
             cmd.exec("dotnet sln {} add {}".format(slnFile, sub.csprojPath))
 
-def addDefaultVar(csProjXML):
+def addDefaultVar(csProjXML, sub):
     propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
-    xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
-    xmler.deleteElement(propertyGroup, "Nullable")
+    
+    # Apply project-specific PropertyGroup settings
+    for key, value in sub.propertyGroup.items():
+        if value is None:
+            xmler.deleteElement(propertyGroup, key)
+        else:
+            xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, key, str(value))
+    
+    # Apply standard defaults if not overridden
+    if "GenerateDocumentationFile" not in sub.propertyGroup:
+        xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
+    if "Nullable" not in sub.propertyGroup:
+        xmler.deleteElement(propertyGroup, "Nullable")
 
 def addPreBuildEvents(csProjXML):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[
@@ -125,11 +136,75 @@ def addPreBuildEvents(csProjXML):
         {"name": "Command",   "value": "bash &quot;$(ProjectDir)../typer/typer.sh&quot; dependency -p &quot;$(ProjectDir)../&quot;"}
     ])
 
-def addExternals(csProjXML, project, dev, test):
-    if not project.externals:
+def addPackageReferences(csProjXML, sub):
+    """Apply project-specific PackageReference attributes and conditions"""
+    # Find or create the main PackageReference ItemGroup
+    packageGroup = None
+    for group in csProjXML.getElementsByTagName("ItemGroup"):
+        # Look for a group that doesn't have a Label attribute, or has a specific label for packages
+        if group.hasAttribute("Label"):
+            continue
+        refs = group.getElementsByTagName("PackageReference")
+        if refs.length > 0:
+            packageGroup = group
+            break
+    
+    if packageGroup is None:
         return
+    
+    # Apply customizations to PackageReferences
+    for pkgRef in packageGroup.getElementsByTagName("PackageReference"):
+        pkgName = pkgRef.getAttribute("Include")
+        if pkgName in sub.packageReferences:
+            attrs = sub.packageReferences[pkgName]
+            for attrName, attrValue in attrs.items():
+                if attrValue is not None:
+                    # Handle nested elements like IncludeAssets, PrivateAssets
+                    if attrName in ("IncludeAssets", "PrivateAssets", "Condition"):
+                        if attrName == "Condition":
+                            pkgRef.setAttribute("Condition", attrValue)
+                        else:
+                            child = csProjXML.createElement(attrName)
+                            child.appendChild(csProjXML.createTextNode(attrValue))
+                            # If Condition is specified, apply it
+                            if "Condition" in attrs:
+                                child.setAttribute("Condition", attrs["Condition"])
+                            pkgRef.appendChild(child)
+                    else:
+                        pkgRef.setAttribute(attrName, str(attrValue))
 
-    contentItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOContent")
+def addUsingStatements(csProjXML, sub):
+    """Add Using directives for test projects"""
+    if not sub.usingStatements:
+        return
+    
+    # Find or create ItemGroup for Using statements
+    usingGroup = None
+    for group in csProjXML.getElementsByTagName("ItemGroup"):
+        usings = group.getElementsByTagName("Using")
+        if usings.length > 0:
+            usingGroup = group
+            break
+    
+    if usingGroup is None:
+        usingGroup = csProjXML.createElement("ItemGroup")
+        csProjXML.documentElement.appendChild(usingGroup)
+    
+    # Add Using statements
+    for usingName in sub.usingStatements:
+        # Check if already exists
+        exists = False
+        for using in usingGroup.getElementsByTagName("Using"):
+            if using.getAttribute("Include") == usingName:
+                exists = True
+                break
+        
+        if not exists:
+            using = csProjXML.createElement("Using")
+            using.setAttribute("Include", usingName)
+            usingGroup.appendChild(using)
+
+def addExternals(csProjXML, project, dev, test):
     
     for external in project.externals:
         if not dev and external.dev:
@@ -178,8 +253,12 @@ def do(args):
         csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
         csProjXML = xmler.load(csPath)
         if sub.type == "":
-            addDefaultVar(csProjXML)
+            addDefaultVar(csProjXML, sub)
             addPreBuildEvents(csProjXML)
+        else:
+            addDefaultVar(csProjXML, sub)
+        addPackageReferences(csProjXML, sub)
+        addUsingStatements(csProjXML, sub)
         addExternals(csProjXML, project, sub.type == "dev", sub.type == "test")
         addTypeoConfigFiles(csProjXML)
         xmler.save(csProjXML, csPath)

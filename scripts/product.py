@@ -74,11 +74,17 @@ class SubProject:
     name = ""
     type = ""
     dependsOn = []
+    propertyGroup = {}
+    packageReferences = {}
+    usingStatements = []
 
     def __init__(self, subProject):
         self.name = subProject["Name"]
         self.type = subProject.get("type", "")
         self.dependsOn = list(subProject.get("depends_on", []))
+        self.propertyGroup = dict(subProject.get("propertyGroup", {}))
+        self.packageReferences = dict(subProject.get("packageReferences", {}))
+        self.usingStatements = list(subProject.get("usingStatements", []))
 
     @property
     def csprojPath(self):
