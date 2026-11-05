@@ -45,7 +45,7 @@ def do(args):
         if dependency.local:
             localModulePath = "{}".format(dependency.version)
         else:
-            localModulePath = "{}/{}/{}".format(modulecachepath, dependency.name, dependency.version)
+            localModulePath = "{}/{}/{}/{}".format(modulecachepath, dependency.author, dependency.name, dependency.version)
         
         if not os.path.isdir(localModulePath) and not dependency.local and not dependency.nuget:
             downloadAndExtractDependency(dependency, localModulePath)

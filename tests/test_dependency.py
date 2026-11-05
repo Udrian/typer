@@ -146,7 +146,7 @@ class DoTests(TempDirTestCase):
         data = {"name": name, "version": "0.1.0", "project": [{"Name": name}]}
         if devName:
             data["project"].append({"Name": devName, "type": "dev"})
-        self.writeTypeO("cache/{}/{}".format(name, version), data)
+        self.writeTypeO("cache/Udrian/{}/{}".format(name, version), data)
 
     def makeProject(self, data):
         self.writeTypeO("proj", data)
@@ -170,7 +170,7 @@ class DoTests(TempDirTestCase):
         download.assert_not_called()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
         include = xmler.load(self.path("proj/Foo/Foo.csproj")).getElementsByTagName("ProjectReference")[0].getAttribute("Include")
-        self.assertEqual(include, "{}/TypeOCore/0.1.0.dev/TypeOCore/TypeOCore.csproj".format(self.cache))
+        self.assertEqual(include, "{}/Udrian/TypeOCore/0.1.0.dev/TypeOCore/TypeOCore.csproj".format(self.cache))
 
     def test_second_run_does_not_duplicate(self):
         self.makeModule("TypeOCore", "0.1.0.dev")
@@ -185,7 +185,7 @@ class DoTests(TempDirTestCase):
         download.assert_called_once()
         called, localPath = download.call_args.args
         self.assertEqual(called.name, "TypeOCore")
-        self.assertEqual(localPath, "{}/TypeOCore/0.1.0.dev".format(self.cache))
+        self.assertEqual(localPath, "{}/Udrian/TypeOCore/0.1.0.dev".format(self.cache))
 
     def test_nuget_dependency_is_never_downloaded(self):
         self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Pkg-1.0;nuget"]})
@@ -300,7 +300,7 @@ class DoTests(TempDirTestCase):
         self.writeTypeO("proj", {"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})
         system, _ = self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
-        system.assert_called_once_with("dotnet sln {}/Foo.sln remove {}/Other/1.0/Other/Other.csproj".format(self.proj, self.cache))
+        system.assert_called_once_with("dotnet sln {}/Foo.sln remove {}/Udrian/Other/1.0/Other/Other.csproj".format(self.proj, self.cache))
 
     def test_removing_all_dependencies_removes_the_module_group(self):
         self.makeModule("TypeOCore", "0.1.0.dev")
@@ -361,7 +361,7 @@ class DoTests(TempDirTestCase):
     def test_default_cache_path_uses_environment(self):
         variable = "LOCALAPPDATA" if os.name == "nt" else "HOME"
         base = self.path("home")
-        self.write("home/TypeO/ModulesCache/TypeOCore/0.1.0.dev/typeo.json", "{}")
+        self.write("home/TypeO/ModulesCache/Udrian/TypeOCore/0.1.0.dev/typeo.json", "{}")
         self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})
         with mock.patch.dict(os.environ, {variable: base}), \
                 mock.patch("scripts.dependency.os.system"), \
