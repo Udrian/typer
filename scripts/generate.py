@@ -164,8 +164,13 @@ def addPackageReferences(csProjXML, sub):
             packageGroup = group
             break
     
+    # If no PackageReference group exists, create one
     if packageGroup is None:
-        return
+        # Only create if we have packageReferences to add
+        if not sub.packageReferences:
+            return
+        packageGroup = csProjXML.createElement("ItemGroup")
+        csProjXML.documentElement.appendChild(packageGroup)
     
     # Track which packages from typeo.json we've processed
     processedPackages = set()
@@ -227,7 +232,6 @@ def addPackageReferences(csProjXML, sub):
                     pkgRef.appendChild(child)
                 elif attrValue is not None and attrName not in ("IncludeAssets", "PrivateAssets"):
                     pkgRef.setAttribute(attrName, str(attrValue))
-            
             packageGroup.appendChild(pkgRef)
 
 def addUsingStatements(csProjXML, sub):
