@@ -145,27 +145,51 @@ def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, depend
         return False
     
     if dependency.nuget:
-        resolveNuget(csProjXML, csPath, dependency)
-        return False
+        return resolveNuget(csProjXML, csPath, dependency)
     
     return resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency)
 
 def resolveNuget(csProjXML, csPath, dependency):
     dontAdd = False
+    existingRef = None
+    xmlModified = False
+    
     for nuget in csProjXML.getElementsByTagName('PackageReference'):
         if nuget.getAttribute('Include').lower() != dependency.name.lower():
             continue
+        
+        # Found the package - check version
         version = nuget.getAttribute('Version')
         if not version:
             versionNodes = nuget.getElementsByTagName('Version')
             if versionNodes and versionNodes[0].firstChild:
                 version = versionNodes[0].firstChild.data
-        if version.strip() == dependency.version:
+        
+        # If version matches or there's no version yet, preserve the existing entry
+        if not version or version.strip() == dependency.version:
             dontAdd = True
-            break
+            existingRef = nuget
+        else:
+            # Version mismatch - need to update
+            existingRef = nuget
+        break
 
-    if not dontAdd:
+    if dontAdd and existingRef is not None:
+        # Version matches - ensure version is set (might be in child element)
+        if not existingRef.getAttribute('Version'):
+            existingRef.setAttribute('Version', dependency.version)
+            xmlModified = True
+        return xmlModified
+    elif existingRef is not None:
+        # Version mismatch - update the existing reference instead of calling dotnet add
+        # This preserves custom attributes like Condition on child elements
+        existingRef.setAttribute('Version', dependency.version)
+        xmlModified = True
+        return xmlModified
+    else:
+        # Package doesn't exist yet - only then use dotnet add
         os.system("dotnet add {} package {} -v {}".format(csPath, dependency.name, dependency.version))
+        return False
 
 def resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency):
     moduleItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOModules")

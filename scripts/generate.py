@@ -1,5 +1,5 @@
 import os
-from scripts import product, xmler, cmd
+from scripts import product, xmler, cmd, dependency
 
 def find_solution_file(projectPath, projectName):
     """Find the solution file, checking for both .sln and .slnx formats"""
@@ -15,6 +15,10 @@ def find_solution_file(projectPath, projectName):
 
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True,       help="Path to project")
+    if os.name == 'nt':
+        parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
+    else:
+        parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{HOME}}/TypeO/ModulesCache'")
 
 def checkAndInstallPrerequisites():
     if not cmd.exist("dotnet new list Avalonia", "Avalonia"):
@@ -45,6 +49,13 @@ def createDevProject(project, sub):
         xmler.deleteElement(propertyGroup, "OutputType")
         xmler.deleteElement(propertyGroup, "ApplicationManifest")
         xmler.deleteElement(propertyGroup, "AvaloniaUseCompiledBindingsByDefault")
+        
+        # Remove template's auto-included diagnostics packages since typeo.json specifies which one to use
+        for pkg in csProjXML.getElementsByTagName("PackageReference"):
+            pkgName = pkg.getAttribute("Include").lower()
+            if pkgName in ("avaloniaui.diagnosticssupport", "avalonia.diagnostics"):
+                pkg.parentNode.removeChild(pkg)
+        
         xmler.save(csProjXML, sub.csprojPath)
 
 def createTestProject(sub):
@@ -156,20 +167,20 @@ def addPackageReferences(csProjXML, sub):
     if packageGroup is None:
         return
     
-    # Apply customizations to PackageReferences
+    # Track which packages from typeo.json we've processed
+    processedPackages = set()
+    
+    # Apply customizations to existing PackageReferences
     for pkgRef in packageGroup.getElementsByTagName("PackageReference"):
         pkgName = pkgRef.getAttribute("Include")
         if pkgName in sub.packageReferences:
+            processedPackages.add(pkgName)
             attrs = sub.packageReferences[pkgName]
-            
-            # Handle Condition attribute separately
-            if "Condition" in attrs and attrs["Condition"] is not None:
-                pkgRef.setAttribute("Condition", attrs["Condition"])
             
             # Handle nested elements like IncludeAssets, PrivateAssets
             for attrName, attrValue in attrs.items():
                 if attrName == "Condition":
-                    continue  # Already handled above
+                    continue  # Condition goes on child elements, not PackageReference
                 
                 if attrValue is not None and attrName in ("IncludeAssets", "PrivateAssets"):
                     # Check if element already exists
@@ -181,7 +192,7 @@ def addPackageReferences(csProjXML, sub):
                     if existing is None:
                         child = csProjXML.createElement(attrName)
                         child.appendChild(csProjXML.createTextNode(attrValue))
-                        # If Condition is specified, apply it to the child too
+                        # If Condition is specified, apply it to the child element
                         if "Condition" in attrs and attrs["Condition"] is not None:
                             child.setAttribute("Condition", attrs["Condition"])
                         pkgRef.appendChild(child)
@@ -194,6 +205,30 @@ def addPackageReferences(csProjXML, sub):
                     # Regular attributes (not IncludeAssets/PrivateAssets/Condition)
                     if attrValue is not None:
                         pkgRef.setAttribute(attrName, str(attrValue))
+    
+    # Create missing PackageReferences that are specified in typeo.json but not in the template
+    for pkgName, attrs in sub.packageReferences.items():
+        if pkgName not in processedPackages:
+            # Create new PackageReference element
+            pkgRef = csProjXML.createElement("PackageReference")
+            pkgRef.setAttribute("Include", pkgName)
+            
+            # Add nested elements (Condition goes on the child elements, not the PackageReference)
+            for attrName, attrValue in attrs.items():
+                if attrName == "Condition":
+                    continue  # Condition goes on child elements, not PackageReference
+                
+                if attrValue is not None and attrName in ("IncludeAssets", "PrivateAssets"):
+                    child = csProjXML.createElement(attrName)
+                    child.appendChild(csProjXML.createTextNode(attrValue))
+                    # If Condition is specified, apply it to the child element
+                    if "Condition" in attrs and attrs["Condition"] is not None:
+                        child.setAttribute("Condition", attrs["Condition"])
+                    pkgRef.appendChild(child)
+                elif attrValue is not None and attrName not in ("IncludeAssets", "PrivateAssets"):
+                    pkgRef.setAttribute(attrName, str(attrValue))
+            
+            packageGroup.appendChild(pkgRef)
 
 def addUsingStatements(csProjXML, sub):
     """Add Using directives for test projects"""
@@ -288,3 +323,6 @@ def do(args):
         addExternals(csProjXML, project, sub.type == "dev", sub.type == "test")
         addTypeoConfigFiles(csProjXML)
         xmler.save(csProjXML, csPath)
+    
+    # Resolve dependencies after generating csproj files
+    dependency.do(args)
