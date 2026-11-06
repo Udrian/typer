@@ -107,18 +107,22 @@ def createProjectAndSolution(project):
 def addDefaultVar(csProjXML, sub):
     propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
     
+    # Clear all PropertyGroup children
+    while propertyGroup.firstChild:
+        propertyGroup.removeChild(propertyGroup.firstChild)
+    
+    # Add standard properties
+    xmler.createElement(csProjXML, propertyGroup, "TargetFramework", "net10.0")
+    xmler.createElement(csProjXML, propertyGroup, "ImplicitUsings", "enable")
+    
     # Apply project-specific PropertyGroup settings
     for key, value in sub.propertyGroup.items():
-        if value is None:
-            xmler.deleteElement(propertyGroup, key)
-        else:
-            xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, key, str(value))
+        if value is not None:
+            xmler.createElement(csProjXML, propertyGroup, key, str(value))
     
-    # Apply standard defaults if not overridden
-    if "GenerateDocumentationFile" not in sub.propertyGroup:
-        xmler.getOrCreateElementWithValue(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
-    if "Nullable" not in sub.propertyGroup:
-        xmler.deleteElement(propertyGroup, "Nullable")
+    # Add GenerateDocumentationFile for main projects if not overridden
+    if sub.type == "" and "GenerateDocumentationFile" not in sub.propertyGroup:
+        xmler.createElement(csProjXML, propertyGroup, "GenerateDocumentationFile", "true")
 
 def addPreBuildEvents(csProjXML):
     target = xmler.getOrCreateElementWithAttributes(csProjXML, csProjXML, "Target",[
@@ -157,20 +161,38 @@ def addPackageReferences(csProjXML, sub):
         pkgName = pkgRef.getAttribute("Include")
         if pkgName in sub.packageReferences:
             attrs = sub.packageReferences[pkgName]
+            
+            # Handle Condition attribute separately
+            if "Condition" in attrs and attrs["Condition"] is not None:
+                pkgRef.setAttribute("Condition", attrs["Condition"])
+            
+            # Handle nested elements like IncludeAssets, PrivateAssets
             for attrName, attrValue in attrs.items():
-                if attrValue is not None:
-                    # Handle nested elements like IncludeAssets, PrivateAssets
-                    if attrName in ("IncludeAssets", "PrivateAssets", "Condition"):
-                        if attrName == "Condition":
-                            pkgRef.setAttribute("Condition", attrValue)
-                        else:
-                            child = csProjXML.createElement(attrName)
-                            child.appendChild(csProjXML.createTextNode(attrValue))
-                            # If Condition is specified, apply it
-                            if "Condition" in attrs:
-                                child.setAttribute("Condition", attrs["Condition"])
-                            pkgRef.appendChild(child)
+                if attrName == "Condition":
+                    continue  # Already handled above
+                
+                if attrValue is not None and attrName in ("IncludeAssets", "PrivateAssets"):
+                    # Check if element already exists
+                    existing = None
+                    for child in pkgRef.getElementsByTagName(attrName):
+                        existing = child
+                        break
+                    
+                    if existing is None:
+                        child = csProjXML.createElement(attrName)
+                        child.appendChild(csProjXML.createTextNode(attrValue))
+                        # If Condition is specified, apply it to the child too
+                        if "Condition" in attrs and attrs["Condition"] is not None:
+                            child.setAttribute("Condition", attrs["Condition"])
+                        pkgRef.appendChild(child)
                     else:
+                        # Update existing element
+                        existing.firstChild.data = attrValue
+                        if "Condition" in attrs and attrs["Condition"] is not None:
+                            existing.setAttribute("Condition", attrs["Condition"])
+                else:
+                    # Regular attributes (not IncludeAssets/PrivateAssets/Condition)
+                    if attrValue is not None:
                         pkgRef.setAttribute(attrName, str(attrValue))
 
 def addUsingStatements(csProjXML, sub):
@@ -205,6 +227,10 @@ def addUsingStatements(csProjXML, sub):
             usingGroup.appendChild(using)
 
 def addExternals(csProjXML, project, dev, test):
+    if not project.externals:
+        return
+
+    contentItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOContent")
     
     for external in project.externals:
         if not dev and external.dev:
