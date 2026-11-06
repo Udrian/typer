@@ -77,6 +77,7 @@ class SubProject:
     propertyGroup = {}
     packageReferences = {}
     usingStatements = []
+    itemGroups = []
 
     def __init__(self, subProject):
         self.name = subProject["Name"]
@@ -85,6 +86,7 @@ class SubProject:
         self.propertyGroup = dict(subProject.get("propertyGroup", {}))
         self.packageReferences = dict(subProject.get("packageReferences", {}))
         self.usingStatements = list(subProject.get("usingStatements", []))
+        self.itemGroups = list(subProject.get("itemGroups", []))
 
     @property
     def csprojPath(self):

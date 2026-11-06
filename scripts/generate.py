@@ -308,6 +308,62 @@ def addTypeoConfigFiles(csProjXML):
             noneElement.setAttribute("Include", configFile)
             noneItemGroup.appendChild(noneElement)
 
+def addCustomItemGroups(csProjXML, sub):
+    if not sub.itemGroups:
+        return
+    
+    for itemGroupDef in sub.itemGroups:
+        if "items" not in itemGroupDef:
+            continue
+        
+        # Create an ItemGroup (without Label so it's a regular group)
+        itemGroup = csProjXML.createElement("ItemGroup")
+        
+        # Add each item to the ItemGroup
+        hasItems = False
+        for item in itemGroupDef.get("items", []):
+            itemName = item.get("name")
+            if not itemName:
+                continue
+            
+            # Check if this item already exists in any ItemGroup
+            exists = False
+            for existingGroup in csProjXML.getElementsByTagName("ItemGroup"):
+                for existingItem in existingGroup.getElementsByTagName(itemName):
+                    # Compare attributes to see if it's the same item
+                    sameItem = True
+                    for attrKey, attrValue in item.items():
+                        if attrKey == "name":
+                            continue
+                        attrName = attrKey[0].upper() + attrKey[1:] if attrKey else attrKey
+                        if existingItem.getAttribute(attrName) != str(attrValue if attrValue else ""):
+                            sameItem = False
+                            break
+                    if sameItem:
+                        exists = True
+                        break
+                if exists:
+                    break
+            
+            if not exists:
+                element = csProjXML.createElement(itemName)
+                
+                # Add attributes from the item definition
+                for attrKey, attrValue in item.items():
+                    if attrKey == "name":
+                        continue  # name is the element type, not an attribute
+                    # Convert attribute keys to proper casing (e.g., "include" -> "Include")
+                    attrName = attrKey[0].upper() + attrKey[1:] if attrKey else attrKey
+                    if attrValue is not None:
+                        element.setAttribute(attrName, str(attrValue))
+                
+                itemGroup.appendChild(element)
+                hasItems = True
+        
+        # Only append the ItemGroup if it has items
+        if hasItems:
+            csProjXML.documentElement.appendChild(itemGroup)
+
 def do(args):
     project = product.load(args.projectPath)
     os.chdir(args.projectPath)
@@ -326,6 +382,7 @@ def do(args):
         addUsingStatements(csProjXML, sub)
         addExternals(csProjXML, project, sub.type == "dev", sub.type == "test")
         addTypeoConfigFiles(csProjXML)
+        addCustomItemGroups(csProjXML, sub)
         xmler.save(csProjXML, csPath)
     
     # Resolve dependencies after generating csproj files
