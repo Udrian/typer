@@ -7,6 +7,7 @@ All of these work on a project folder containing `typeo.json` (and optionally `t
 | Command | Purpose |
 | --- | --- |
 | `modules [-r registry.json]` | JSON list of all modules in `modules.json` (`Author/Name` entries) with their GitHub tag versions |
+| `moduleinfo -a author -n name -v version [-c cachePath]` | JSON product description (typeo.json) of a module version, from the module cache or GitHub |
 | `dependencies -p <path>` | JSON list of the project's effective dependencies, flagging overrides |
 | `adddependency` / `removedependency` | Add, replace or remove an entry in `typeo.json` |
 | `update -p <path> [-n name] [-v version]` | Update TypeO dependencies to the latest release or a given version |

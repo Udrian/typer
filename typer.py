@@ -1,4 +1,4 @@
-from scripts import build, pack, upload, dependency, new, generate, list, addproject, removeproject, adddependency, removedependency, modules, dependencies, update, addoverride, removeoverride
+from scripts import build, pack, upload, dependency, new, generate, list, addproject, removeproject, adddependency, removedependency, modules, moduleinfo, dependencies, update, addoverride, removeoverride
 import argparse
 
 def run_command(parser, args):
@@ -26,6 +26,8 @@ def run_command(parser, args):
         removedependency.do(args)
     elif args.command == 'modules':
         modules.do(args)
+    elif args.command == 'moduleinfo':
+        moduleinfo.do(args)
     elif args.command == 'dependencies':
         dependencies.do(args)
     elif args.command == 'update':
@@ -56,6 +58,7 @@ def main():
     adddependency.parse(AddParser('adddependency', "Adds a dependency to typeo.json"))
     removedependency.parse(AddParser('removedependency', "Removes a dependency from typeo.json"))
     modules.   parse(AddParser('modules',    "Lists all registered modules and their versions as json"))
+    moduleinfo.parse(AddParser('moduleinfo', "Prints the product description (typeo.json) of a module version as json"))
     dependencies.parse(AddParser('dependencies', "Lists the dependencies of a project as json"))
     update.    parse(AddParser('update',     "Updates dependencies in typeo.json to the latest or a given version"))
     addoverride.parse(AddParser('addoverride', "Overrides a dependency with a local module in typeo_override.json"))
