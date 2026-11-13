@@ -26,7 +26,7 @@ class ManipulateProjectTests(unittest.TestCase):
         xml = parseXml()
         with mock.patch("scripts.dependency.resolveNuget") as nuget, \
                 mock.patch("scripts.dependency.resolveTypeODep", return_value=True) as typeo:
-            result = dependency.manipulateProject(xml, "a.csproj", "a.sln", "path.csproj", dependency_, projectType)
+            result = dependency.manipulateProject(xml, "a.csproj", "path.csproj", dependency_, projectType)
         return result, nuget, typeo
 
     def test_dev_dependency_skipped_for_non_dev_project(self):
@@ -96,22 +96,22 @@ class ResolveTypeODepTests(unittest.TestCase):
     def references(self, xml):
         return [(r.getAttribute("Name"), r.getAttribute("Include")) for r in xml.getElementsByTagName("ProjectReference")]
 
-    def test_adds_reference_and_solution_entry(self):
+    def test_adds_project_reference_for_solution_sync(self):
         xml = parseXml()
         with mock.patch("scripts.dependency.os.system") as system:
-            result = dependency.resolveTypeODep(xml, "a.sln", "m/A/A.csproj", dep("A-1.0"))
+            result = dependency.resolveTypeODep(xml, "m/A/A.csproj", dep("A-1.0"))
         self.assertTrue(result)
         self.assertEqual(self.references(xml), [("A", "m/A/A.csproj")])
         group = xml.getElementsByTagName("ItemGroup")[0]
         self.assertEqual(group.getAttribute("Label"), "TypeOModules")
-        system.assert_called_once_with("dotnet sln a.sln add m/A/A.csproj")
+        system.assert_not_called()
 
     def test_second_call_is_a_no_op(self):
         xml = parseXml()
         with mock.patch("scripts.dependency.os.system") as system:
-            dependency.resolveTypeODep(xml, "a.sln", "m/A/A.csproj", dep("A-1.0"))
+            dependency.resolveTypeODep(xml, "m/A/A.csproj", dep("A-1.0"))
             system.reset_mock()
-            result = dependency.resolveTypeODep(xml, "a.sln", "m/A/A.csproj", dep("A-1.0"))
+            result = dependency.resolveTypeODep(xml, "m/A/A.csproj", dep("A-1.0"))
         self.assertFalse(result)
         system.assert_not_called()
         self.assertEqual(len(self.references(xml)), 1)
@@ -119,19 +119,18 @@ class ResolveTypeODepTests(unittest.TestCase):
     def test_changed_path_replaces_reference(self):
         xml = parseXml()
         with mock.patch("scripts.dependency.os.system") as system:
-            dependency.resolveTypeODep(xml, "a.sln", "old/A.csproj", dep("A-1.0"))
+            dependency.resolveTypeODep(xml, "old/A.csproj", dep("A-1.0"))
             system.reset_mock()
-            result = dependency.resolveTypeODep(xml, "a.sln", "new/A.csproj", dep("A-2.0"))
+            result = dependency.resolveTypeODep(xml, "new/A.csproj", dep("A-2.0"))
         self.assertTrue(result)
         self.assertEqual(self.references(xml), [("A", "new/A.csproj")])
-        system.assert_has_calls([mock.call("dotnet sln a.sln remove old/A.csproj"),
-                                 mock.call("dotnet sln a.sln add new/A.csproj")])
+        system.assert_not_called()
 
     def test_multiple_dependencies_share_one_item_group(self):
         xml = parseXml()
         with mock.patch("scripts.dependency.os.system"):
-            dependency.resolveTypeODep(xml, "a.sln", "m/A.csproj", dep("A-1"))
-            dependency.resolveTypeODep(xml, "a.sln", "m/B.csproj", dep("B-1"))
+            dependency.resolveTypeODep(xml, "m/A.csproj", dep("A-1"))
+            dependency.resolveTypeODep(xml, "m/B.csproj", dep("B-1"))
         self.assertEqual(len(xml.getElementsByTagName("ItemGroup")), 1)
         self.assertEqual([n for n, _ in self.references(xml)], ["A", "B"])
 
@@ -297,13 +296,18 @@ class DoTests(TempDirTestCase):
         self.makeModule("Other", "1.0")
         self.makeProject({"name": "Foo", "version": "1", "dependencies": [
             "Udrian@TypeOCore-0.1.0.dev", "Udrian@Other-1.0"]})
+        solution = self.write("proj/Foo.slnx", "<Solution />")
         self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore", "Other"])
+        self.assertEqual(len(xmler.load(solution).getElementsByTagName("Project")), 2)
 
         self.writeTypeO("proj", {"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})
         system, _ = self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
-        system.assert_called_once_with("dotnet sln {}/Foo.sln remove {}/Udrian/Other/1.0/Other/Other.csproj".format(self.proj, self.cache))
+        solutionPaths = [p.getAttribute("Path") for p in xmler.load(solution).getElementsByTagName("Project")]
+        self.assertEqual(len(solutionPaths), 1)
+        self.assertIn("/TypeOCore/0.1.0.dev/", solutionPaths[0])
+        system.assert_not_called()
 
     def test_removing_all_dependencies_removes_the_module_group(self):
         self.makeModule("TypeOCore", "0.1.0.dev")
@@ -396,6 +400,32 @@ class DoTests(TempDirTestCase):
                 core = next(r for r in refs if r.getAttribute("Name") == "Core")
                 self.assertIn("/Core/2.0/", core.getAttribute("Include"))
         self.assertEqual(json.loads(self.read("cache/Udrian/Middle/1.0/typeo.json"))["dependencies"], ["Udrian@Core-1.0"])
+
+    def test_cached_resolution_repairs_solution_when_project_reference_is_already_current(self):
+        project = "project with spaces"
+        cache = "module cache with spaces"
+        moduleData = {"name": "Core", "version": "2.0", "type": "module", "project": [{"Name": "Core"}]}
+        self.writeTypeO("{}/Udrian/Core/2.0".format(cache), moduleData)
+        newProject = "{}/Udrian/Core/2.0/Core/Core.csproj".format(self.path(cache))
+        oldProject = self.path(cache, "Udrian", "Core", "1.0", "Core", "Core.csproj")
+        self.write("{}/Foo/Foo.csproj".format(project), CSPROJ.replace("</Project>",
+                   '<ItemGroup Label="TypeOModules"><ProjectReference Name="Core" Include="{}"/></ItemGroup></Project>'.format(newProject)))
+        self.write("{}/Udrian/Core/2.0/Core/Core.csproj".format(cache), CSPROJ)
+        self.writeTypeO(project, {"name": "Foo", "version": "1", "dependencies": ["Udrian@Core-1.0"]})
+        resolvedPath = self.write("{}/TypeO/cache/modules.json".format(project), json.dumps({
+            "Modules": [{"Author": "Udrian", "Name": "Core", "Version": "2.0"}]}))
+        solution = self.write("{}/Foo.slnx".format(project),
+                              '<Solution><Project Path="{}" /></Solution>'.format(oldProject.replace("\\", "/")))
+
+        with mock.patch("scripts.dependency.os.system") as system, \
+                mock.patch("scripts.dependency.downloadAndExtractDependency") as download:
+            dependency.do(argparse.Namespace(projectPath=self.path(project), cachePath=self.path(cache),
+                                            resolvedModules=resolvedPath))
+
+        solutionProjects = [p.getAttribute("Path") for p in xmler.load(solution).getElementsByTagName("Project")]
+        self.assertEqual(solutionProjects, [newProject.replace("\\", "/")])
+        system.assert_not_called()
+        download.assert_not_called()
 
     def test_selected_versions_preserve_dependency_tags_and_nuget_versions(self):
         self.makeModule("Core", "2.0", devName="CoreDev")

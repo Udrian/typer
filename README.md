@@ -20,8 +20,10 @@ Dependency and override strings use the form `Author@Name-Version[;tag]`; local 
 When a project has `TypeO/cache/modules.json`, `dependency` uses its resolved `Modules`
 (`Author`, `Name`, `Version`) as the selected module versions throughout the project graph.
 Each module's csproj references use the same selected versions, while dependency tags
-and NuGet versions remain unchanged. Local selections use a `;local` version suffix.
-Without that cache, dependency resolution retains the manifest/override behavior.
+and NuGet versions remain unchanged. Solution entries are reconciled against the
+resolved project references, repairing stale entries even if an earlier run updated a
+csproj without updating its solution. Local selections use a `;local` version suffix.
+Without that cache, module versions retain the manifest/override behavior.
 
 The cache context is passed to module generation and pre-build resolution using
 `--resolvedModules <path>`, also accepted by `generate`. Those pre-build hooks invoke

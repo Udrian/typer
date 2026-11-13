@@ -1,6 +1,7 @@
 import json, os, subprocess, sys, urllib.request, zipfile, shutil
 from scripts import product, xmler
 from copy import deepcopy
+from xml.dom import minidom
 
 def find_solution_file(projectPath, projectName):
     """Find the solution file, checking for both .sln and .slnx formats"""
@@ -105,7 +106,7 @@ def resolveProject(args, resolvedPath, resolvedModules, visited):
                 else:
                     expectedModules[sub.name][dependency.name] = localModuleProjectPath
             csProjXML = xmler.load(csPath)
-            if manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, sub.type, projectTypes):
+            if manipulateProject(csProjXML, csPath, localModuleProjectPath, dependency, sub.type, projectTypes):
                 xmler.save(csProjXML, csPath)
 
             if sub.type == "dev" or (sub.type == "" and dependency.usesMainAsDev(projectTypes)):
@@ -115,7 +116,7 @@ def resolveProject(args, resolvedPath, resolvedModules, visited):
                     localDevProjectPath = "{}/{}".format(localModulePath, devProject.csprojPath)
                     expectedModules[sub.name][devProject.name] = localDevProjectPath
                     csProjXML = xmler.load(csPath)
-                    if manipulateProject(csProjXML, csPath, slnPath, localDevProjectPath, typeDDependency, "dev", ["dev"]):
+                    if manipulateProject(csProjXML, csPath, localDevProjectPath, typeDDependency, "dev", ["dev"]):
                         xmler.save(csProjXML, csPath)
 
     removedIncludes = set()
@@ -126,8 +127,91 @@ def resolveProject(args, resolvedPath, resolvedModules, visited):
             updateResolutionHook(csPath, args.projectPath, modulecachepath, resolvedPath)
 
     stillUsed = {include for modules in expectedModules.values() for include in modules.values()}
-    for include in removedIncludes - stillUsed:
-        os.system("dotnet sln {} remove {}".format(slnPath, include))
+    expectedSolutionProjects = {
+        os.path.splitext(os.path.basename(include))[0]: include
+        for modules in expectedModules.values()
+        for include in modules.values()
+    }
+    syncSolution(slnPath, expectedSolutionProjects, modulecachepath, removedIncludes - stillUsed)
+
+def syncSolution(slnPath, expectedProjects, modulecachepath, removedProjects=()):
+    """Reconcile the solution with TypeO module references, including previously failed updates."""
+    if not os.path.isfile(slnPath):
+        return
+
+    solutionPath = os.path.abspath(slnPath)
+    solutionDirectory = os.path.dirname(solutionPath)
+    expectedPaths = {
+        name: os.path.normcase(os.path.abspath(os.path.join(solutionDirectory, path)))
+        for name, path in expectedProjects.items()
+    }
+    removedPaths = {os.path.normcase(os.path.abspath(path)) for path in removedProjects}
+    cacheRoot = os.path.normcase(os.path.abspath(modulecachepath))
+
+    def shouldRemove(path, name):
+        normalizedPath = os.path.normcase(path)
+        expectedPath = expectedPaths.get(name)
+        try:
+            inCache = os.path.commonpath((normalizedPath, cacheRoot)) == cacheRoot
+        except ValueError:
+            inCache = False
+        return (normalizedPath in removedPaths
+                or inCache and normalizedPath != expectedPath
+                or expectedPath is not None and normalizedPath != expectedPath)
+
+    if solutionPath.lower().endswith(".slnx"):
+        solutionXML = minidom.parse(solutionPath)
+        present = set()
+        modified = False
+        for project in list(solutionXML.getElementsByTagName("Project")):
+            if not project.hasAttribute("Path"):
+                continue
+            path = project.getAttribute("Path")
+            fullPath = os.path.normcase(os.path.abspath(os.path.join(solutionDirectory, path)))
+            name = os.path.splitext(os.path.basename(path))[0]
+            if shouldRemove(fullPath, name):
+                project.parentNode.removeChild(project)
+                modified = True
+            else:
+                present.add(name)
+
+        for name, path in expectedProjects.items():
+            if name in present:
+                continue
+            project = solutionXML.createElement("Project")
+            project.setAttribute("Path", os.path.abspath(path).replace(os.sep, "/"))
+            solutionXML.documentElement.appendChild(project)
+            modified = True
+
+        if modified:
+            content = solutionXML.toprettyxml(indent="  ")
+            with open(solutionPath, "w", encoding="utf-8") as solutionFile:
+                solutionFile.write("\n".join(line for line in content.splitlines() if line.strip()) + "\n")
+        return
+
+    result = subprocess.run(
+        ["dotnet", "sln", solutionPath, "list"],
+        check=True, capture_output=True, text=True, cwd=solutionDirectory)
+    listedProjects = []
+    for line in result.stdout.splitlines():
+        path = line.strip().strip('"')
+        if path.lower().endswith(".csproj"):
+            fullPath = os.path.abspath(os.path.join(os.path.dirname(slnPath), path))
+            listedProjects.append((path, fullPath, os.path.splitext(os.path.basename(path))[0]))
+
+    present = set()
+    for listedPath, fullPath, name in listedProjects:
+        normalizedPath = os.path.normcase(fullPath)
+        if shouldRemove(normalizedPath, name):
+            subprocess.run(["dotnet", "sln", solutionPath, "remove", listedPath],
+                           check=True, cwd=solutionDirectory)
+        else:
+            present.add(name)
+
+    for name, path in expectedProjects.items():
+        if name not in present:
+            subprocess.run(["dotnet", "sln", solutionPath, "add", os.path.abspath(path)],
+                           check=True, cwd=solutionDirectory)
 
 def updateResolutionHook(csPath, projectPath, cachePath, resolvedPath):
     """Keep module pre-build resolution on this TypeR and the root project's selected versions."""
@@ -207,14 +291,14 @@ def downloadAndExtractDependency(dependency, localModulePath, resolvedPath=None,
         os.system("bash ./create_project_files.sh")
     os.chdir(oldcwd)
 
-def manipulateProject(csProjXML, csPath, slnPath, localModuleProjectPath, dependency, projectType, allProjectTypes=None):
+def manipulateProject(csProjXML, csPath, localModuleProjectPath, dependency, projectType, allProjectTypes=None):
     if not dependency.appliesTo(projectType, allProjectTypes):
         return False
     
     if dependency.nuget:
         return resolveNuget(csProjXML, csPath, dependency)
     
-    return resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency)
+    return resolveTypeODep(csProjXML, localModuleProjectPath, dependency)
 
 def resolveNuget(csProjXML, csPath, dependency):
     dontAdd = False
@@ -258,14 +342,13 @@ def resolveNuget(csProjXML, csPath, dependency):
         os.system("dotnet add {} package {} -v {}".format(csPath, dependency.name, dependency.version))
         return False
 
-def resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency):
+def resolveTypeODep(csProjXML, localModuleProjectPath, dependency):
     moduleItemGroup = xmler.getOrCreateElementWithAttribute(csProjXML, csProjXML, "ItemGroup", "Label", "TypeOModules")
         
     dontAdd = False
     for reference in moduleItemGroup.getElementsByTagName('ProjectReference'):
         if reference.getAttribute('Name') == dependency.name:
             if reference.getAttribute('Include') != localModuleProjectPath:
-                os.system("dotnet sln {} remove {}".format(slnPath, reference.getAttribute('Include')))
                 moduleItemGroup.removeChild(reference)
             else:
                 dontAdd = True
@@ -277,7 +360,6 @@ def resolveTypeODep(csProjXML, slnPath, localModuleProjectPath, dependency):
     reference = csProjXML.createElement("ProjectReference")
     reference.setAttribute("Name", dependency.name)
     reference.setAttribute("Include", localModuleProjectPath)
-    os.system("dotnet sln {} add {}".format(slnPath, localModuleProjectPath))
     moduleItemGroup.appendChild(reference)
 
     return True
