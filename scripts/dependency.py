@@ -225,9 +225,15 @@ def updateResolutionHook(csPath, projectPath, cachePath, resolvedPath):
             continue
         for task in target.getElementsByTagName("Exec"):
             previous = task.getAttribute("Command")
-            if "typer" in previous and "dependency" in previous and previous != command:
-                task.setAttribute("Command", command)
-                modified = True
+            if "typer" in previous and "dependency" in previous:
+                if previous != command:
+                    task.setAttribute("Command", command)
+                    modified = True
+                condition = task.getAttribute("Condition")
+                if "$(TypeODependenciesResolved)" not in condition:
+                    guard = "'$(TypeODependenciesResolved)' != 'true'"
+                    task.setAttribute("Condition", "({}) And ({})".format(condition, guard) if condition else guard)
+                    modified = True
     if modified:
         xmler.save(csProjXML, csPath)
 

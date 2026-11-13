@@ -143,12 +143,12 @@ def addPreBuildEvents(csProjXML):
     ])
 
     windowsExec = xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
-        {"name": "Condition", "value": "!$([MSBuild]::IsOSUnixLike())"},
+        {"name": "Condition", "value": "!$([MSBuild]::IsOSUnixLike()) And '$(TypeODependenciesResolved)' != 'true'"},
         {"name": "Command",   "value": "cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;"}
     ])
     
     unixExec = xmler.getOrCreateElementWithAttributes(csProjXML, target, "Exec", [
-        {"name": "Condition", "value": "$([MSBuild]::IsOSUnixLike())"},
+        {"name": "Condition", "value": "$([MSBuild]::IsOSUnixLike()) And '$(TypeODependenciesResolved)' != 'true'"},
         {"name": "Command",   "value": "bash &quot;$(ProjectDir)../typer/typer.sh&quot; dependency -p &quot;$(ProjectDir)../&quot;"}
     ])
 

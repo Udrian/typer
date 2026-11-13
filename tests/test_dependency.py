@@ -500,6 +500,27 @@ class DoTests(TempDirTestCase):
         self.assertEqual(cachePath, self.cache)
         self.assertEqual(self.refs("Foo"), ["Core"])
 
+    def test_prepared_msbuild_skips_dependency_hook_but_preserves_custom_tasks(self):
+        projectPath = self.write("prepared/Mod/Mod.csproj", """<Project>
+<Target Name="PreBuild">
+  <Exec Command="typer dependency -p .."/>
+  <Message Text="custom-task-ran" Importance="high"/>
+</Target></Project>""")
+        missingCache = self.path("missing modules.json")
+        dependency.updateResolutionHook(projectPath, self.path("prepared"), self.cache, missingCache)
+        dependency.updateResolutionHook(projectPath, self.path("prepared"), self.cache, missingCache)
+        condition = xmler.load(projectPath).getElementsByTagName("Exec")[0].getAttribute("Condition")
+        self.assertEqual(condition.count("$(TypeODependenciesResolved)"), 1)
+
+        command = ["dotnet", "msbuild", projectPath, "-t:PreBuild", "-v:minimal", "-nologo"]
+        ordinary = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(ordinary.returncode, 0)
+        self.assertIn("FileNotFoundError", ordinary.stdout + ordinary.stderr)
+        prepared = subprocess.run(command + ["-p:TypeODependenciesResolved=true"],
+                                  capture_output=True, text=True, timeout=30)
+        self.assertEqual(prepared.returncode, 0, prepared.stdout + prepared.stderr)
+        self.assertIn("custom-task-ran", prepared.stdout)
+
     def test_cycles_are_resolved_once_per_module(self):
         self.makeModule("A", "2.0", dependencies=["Udrian@B-1.0"])
         self.makeModule("B", "2.0", dependencies=["Udrian@A-1.0"])

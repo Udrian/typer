@@ -31,6 +31,12 @@ the TypeR checkout performing the resolution, rather than a module's bundled Typ
 so subsequent builds cannot restore that module's older manifest versions.
 The cache must contain one selection per author/module; conflicting entries fail resolution.
 
+After resolving the complete graph, TypeD builds with
+`-p:TypeODependenciesResolved=true`. Generated dependency hooks honor this property
+so parallel MSBuild projects do not resolve and rewrite each other's dependencies
+during compilation. Other pre-build tasks still run. Ordinary command-line builds
+without this property retain dependency resolution.
+
 ## Running tests
 
 From the repository root:
