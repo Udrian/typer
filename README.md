@@ -17,6 +17,18 @@ All of these work on a project folder containing `typeo.json` (and optionally `t
 
 Dependency and override strings use the form `Author@Name-Version[;tag]`; local overrides use `Author@Name-<path>;local`.
 
+When a project has `TypeO/cache/modules.json`, `dependency` uses its resolved `Modules`
+(`Author`, `Name`, `Version`) as the selected module versions throughout the project graph.
+Each module's csproj references use the same selected versions, while dependency tags
+and NuGet versions remain unchanged. Local selections use a `;local` version suffix.
+Without that cache, dependency resolution retains the manifest/override behavior.
+
+The cache context is passed to module generation and pre-build resolution using
+`--resolvedModules <path>`, also accepted by `generate`. Those pre-build hooks invoke
+the TypeR checkout performing the resolution, rather than a module's bundled TypeR,
+so subsequent builds cannot restore that module's older manifest versions.
+The cache must contain one selection per author/module; conflicting entries fail resolution.
+
 ## Running tests
 
 From the repository root:

@@ -1,4 +1,4 @@
-import os, urllib.request, zipfile, shutil
+import json, os, subprocess, sys, urllib.request, zipfile, shutil
 from scripts import product, xmler
 from copy import deepcopy
 
@@ -16,12 +16,37 @@ def find_solution_file(projectPath, projectName):
  
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True, help="Path to project")
+    parser.add_argument('--resolvedModules', type=str, help="Project TypeO/cache/modules.json to use for module versions")
     if os.name == 'nt':
         parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
     else:
         parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{HOME}}/TypeO/ModulesCache'")
 
 def do(args):
+    resolvedPath = getattr(args, "resolvedModules", None)
+    if resolvedPath is None:
+        candidate = os.path.join(args.projectPath, "TypeO", "cache", "modules.json")
+        if os.path.isfile(candidate):
+            resolvedPath = candidate
+    resolvedModules = {}
+    if resolvedPath is not None:
+        resolvedPath = os.path.abspath(resolvedPath)
+        with open(resolvedPath) as f:
+            for entry in json.load(f)["Modules"]:
+                selected = product.Dependency("{}@{}-{}".format(entry["Author"], entry["Name"], entry["Version"]))
+                key = (selected.author, selected.name)
+                if selected.local:
+                    selected.version = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(resolvedPath))), selected.version))
+                if key in resolvedModules and (resolvedModules[key].version, resolvedModules[key].local) != (selected.version, selected.local):
+                    raise ValueError("Conflicting resolved versions for '{}' in {}".format(selected.name, resolvedPath))
+                resolvedModules[key] = selected
+    resolveProject(args, resolvedPath, resolvedModules, set())
+
+def resolveProject(args, resolvedPath, resolvedModules, visited):
+    projectKey = os.path.normcase(os.path.realpath(args.projectPath))
+    if projectKey in visited:
+        return
+    visited.add(projectKey)
     project = product.load(args.projectPath)
     modulecachepath = args.cachePath
 
@@ -42,13 +67,29 @@ def do(args):
         if dependency.projectTypes and not any(t in projectTypes for t in dependency.projectTypes) \
                 and not dependency.usesMainAsDev(projectTypes):
             continue
+        if not dependency.nuget:
+            selected = resolvedModules.get((dependency.author, dependency.name))
+            if selected is not None:
+                dependency.version = selected.version
+                dependency.local = selected.local
+            elif dependency.local and resolvedPath is not None:
+                dependency.version = os.path.abspath(os.path.join(args.projectPath, dependency.version))
         if dependency.local:
             localModulePath = "{}".format(dependency.version)
         else:
             localModulePath = "{}/{}/{}/{}".format(modulecachepath, dependency.author, dependency.name, dependency.version)
         
         if not os.path.isdir(localModulePath) and not dependency.local and not dependency.nuget:
-            downloadAndExtractDependency(dependency, localModulePath)
+            if resolvedPath is None:
+                downloadAndExtractDependency(dependency, localModulePath)
+            else:
+                downloadAndExtractDependency(dependency, localModulePath, resolvedPath, modulecachepath)
+
+        if resolvedPath is not None and not dependency.nuget:
+            moduleArgs = deepcopy(args)
+            moduleArgs.projectPath = localModulePath
+            moduleArgs.cachePath = modulecachepath
+            resolveProject(moduleArgs, resolvedPath, resolvedModules, visited)
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
 
@@ -81,10 +122,30 @@ def do(args):
     for sub in project.projects:
         csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
         removedIncludes |= removeStaleDependencies(csPath, expectedModules[sub.name], expectedNugets[sub.name])
+        if resolvedPath is not None:
+            updateResolutionHook(csPath, args.projectPath, modulecachepath, resolvedPath)
 
     stillUsed = {include for modules in expectedModules.values() for include in modules.values()}
     for include in removedIncludes - stillUsed:
         os.system("dotnet sln {} remove {}".format(slnPath, include))
+
+def updateResolutionHook(csPath, projectPath, cachePath, resolvedPath):
+    """Keep module pre-build resolution on this TypeR and the root project's selected versions."""
+    csProjXML = xmler.load(csPath)
+    typerPath = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "typer.py")
+    command = '"{}" "{}" dependency -p "{}" -c "{}" --resolvedModules "{}"'.format(
+        sys.executable, typerPath, os.path.abspath(projectPath), os.path.abspath(cachePath), resolvedPath)
+    modified = False
+    for target in csProjXML.getElementsByTagName("Target"):
+        if target.getAttribute("Name") != "PreBuild":
+            continue
+        for task in target.getElementsByTagName("Exec"):
+            previous = task.getAttribute("Command")
+            if "typer" in previous and "dependency" in previous and previous != command:
+                task.setAttribute("Command", command)
+                modified = True
+    if modified:
+        xmler.save(csProjXML, csPath)
 
 def removeStaleDependencies(csPath, expectedModules, expectedNugets):
     """Removes TypeO module and nuget references that are no longer dependencies. Returns the removed module project paths."""
@@ -110,7 +171,7 @@ def removeStaleDependencies(csPath, expectedModules, expectedNugets):
 
     return removedIncludes
 
-def downloadAndExtractDependency(dependency, localModulePath):
+def downloadAndExtractDependency(dependency, localModulePath, resolvedPath=None, cachePath=""):
     print("Downloading '{}-{}'".format(dependency.name, dependency.version))
 
     zipName = "{}.zip".format(dependency.version)
@@ -130,6 +191,12 @@ def downloadAndExtractDependency(dependency, localModulePath):
 
     os.remove(localZipPath)
     os.removedirs(extractedDir)
+
+    if resolvedPath is not None:
+        typerPath = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "typer.py")
+        subprocess.run([sys.executable, typerPath, "generate", "-p", os.path.abspath(localModulePath),
+                        "-c", os.path.abspath(cachePath), "--resolvedModules", resolvedPath], check=True)
+        return
 
     os.system("git clone https://github.com/Udrian/typer.git {}/typer".format(localModulePath))
     oldcwd = os.getcwd()

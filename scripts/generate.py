@@ -15,6 +15,7 @@ def find_solution_file(projectPath, projectName):
 
 def parse(parser):
     parser.add_argument('-p', '--projectPath', type=str, required=True,       help="Path to project")
+    parser.add_argument('--resolvedModules', type=str, help="Project TypeO/cache/modules.json to use for module versions")
     if os.name == 'nt':
         parser.add_argument('-c', '--cachePath',   type=str, default="",    help="Path to modules cache, defaults to '{{LOCALAPPDATA}}/TypeO/ModulesCache'")
     else:

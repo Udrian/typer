@@ -1,4 +1,4 @@
-import argparse, io, json, os, unittest, zipfile
+import argparse, io, json, os, shlex, subprocess, unittest, zipfile
 from unittest import mock
 
 from scripts import dependency, product, xmler
@@ -142,11 +142,14 @@ class DoTests(TempDirTestCase):
         self.cache = self.path("cache")
         self.proj = self.path("proj")
 
-    def makeModule(self, name, version, devName=None):
+    def makeModule(self, name, version, devName=None, dependencies=()):
         data = {"name": name, "version": "0.1.0", "project": [{"Name": name}]}
+        data["dependencies"] = list(dependencies)
         if devName:
             data["project"].append({"Name": devName, "type": "dev"})
         self.writeTypeO("cache/Udrian/{}/{}".format(name, version), data)
+        for sub in data["project"]:
+            self.write("cache/Udrian/{}/{}/{}/{}.csproj".format(name, version, sub["Name"], sub["Name"]), CSPROJ)
 
     def makeProject(self, data):
         self.writeTypeO("proj", data)
@@ -370,6 +373,128 @@ class DoTests(TempDirTestCase):
         download.assert_not_called()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
 
+    def writeResolvedModules(self, entries):
+        return self.write("proj/TypeO/cache/modules.json", json.dumps({
+            "ResolveStamp": "stamp", "BuildStamp": None,
+            "Modules": [{"Author": author, "Name": name, "Version": version}
+                        for author, name, version in entries]}))
+
+    def test_cached_versions_are_used_across_transitive_modules_and_repeated_runs(self):
+        self.makeModule("Core", "2.0")
+        self.makeModule("Middle", "1.0", dependencies=["Udrian@Core-1.0"])
+        self.makeModule("Top", "1.0", dependencies=["Udrian@Middle-0.5", "Udrian@Core-0.5"])
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": [
+            "Udrian@Top-0.5", "Udrian@Core-1.0"]})
+        self.writeResolvedModules([("Udrian", "Core", "2.0"), ("Udrian", "Middle", "1.0"), ("Udrian", "Top", "1.0")])
+
+        for _ in range(2):
+            _, download = self.run_do()
+            download.assert_not_called()
+            for path in ("proj/Foo/Foo.csproj", "cache/Udrian/Middle/1.0/Middle/Middle.csproj",
+                         "cache/Udrian/Top/1.0/Top/Top.csproj"):
+                refs = xmler.load(self.path(path)).getElementsByTagName("ProjectReference")
+                core = next(r for r in refs if r.getAttribute("Name") == "Core")
+                self.assertIn("/Core/2.0/", core.getAttribute("Include"))
+        self.assertEqual(json.loads(self.read("cache/Udrian/Middle/1.0/typeo.json"))["dependencies"], ["Udrian@Core-1.0"])
+
+    def test_selected_versions_preserve_dependency_tags_and_nuget_versions(self):
+        self.makeModule("Core", "2.0", devName="CoreDev")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": [
+            "Udrian@Core-1.0;dev", "Core-4.0;nuget"],
+            "project": [{"Name": "Foo"}, {"Name": "FooDev", "type": "dev"}, {"Name": "FooTest", "type": "test"}]})
+        self.writeResolvedModules([("Udrian", "Core", "2.0")])
+        system, download = self.run_do()
+        download.assert_not_called()
+        self.assertEqual(self.refs("Foo"), [])
+        self.assertEqual(self.refs("FooDev"), ["Core", "CoreDev"])
+        self.assertEqual(self.refs("FooTest"), ["Core"])
+        packageCommands = [c.args[0] for c in system.call_args_list if " package " in c.args[0]]
+        self.assertEqual(len(packageCommands), 3)
+        self.assertTrue(all(command.endswith("package Core -v 4.0") for command in packageCommands))
+
+    def test_cached_local_selection_replaces_module_manifest_paths(self):
+        local = self.writeTypeO("local module", {"name": "Core", "version": "2.0"})
+        self.write("local module/Core/Core.csproj", CSPROJ)
+        self.makeModule("Top", "1.0", dependencies=["Udrian@Core-1.0"])
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@Top-1.0"]})
+        self.writeResolvedModules([("Udrian", "Top", "1.0"), ("Udrian", "Core", "../local module;local")])
+        _, download = self.run_do()
+        download.assert_not_called()
+        refs = xmler.load(self.path("cache/Udrian/Top/1.0/Top/Top.csproj")).getElementsByTagName("ProjectReference")
+        self.assertEqual(refs[0].getAttribute("Include"), "{}/Core/Core.csproj".format(local))
+
+    def test_module_prebuild_uses_main_typer_and_project_resolution_context(self):
+        self.makeModule("Core", "2.0")
+        self.makeModule("Top", "1.0", dependencies=["Udrian@Core-1.0"])
+        moduleProject = "cache/Udrian/Top/1.0/Top/Top.csproj"
+        self.write(moduleProject, CSPROJ.replace("</Project>", """
+<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+  <Exec Condition="windows" Command="typer/typer.bat dependency -p .."/>
+  <Exec Condition="unix" Command="bash typer/typer.sh dependency -p .."/>
+  <Exec Command="echo custom"/>
+</Target></Project>"""))
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@Top-1.0"]})
+        resolvedPath = self.writeResolvedModules([("Udrian", "Core", "2.0"), ("Udrian", "Top", "1.0")])
+        self.run_do()
+        commands = [e.getAttribute("Command") for e in xmler.load(self.path(moduleProject)).getElementsByTagName("Exec")]
+        self.assertEqual(commands[0], commands[1])
+        self.assertEqual(commands[2], "echo custom")
+        argv = shlex.split(commands[0])
+        self.assertEqual(argv[1], os.path.join(os.path.dirname(os.path.dirname(dependency.__file__)), "typer.py"))
+        parser = argparse.ArgumentParser()
+        dependency.parse(parser)
+        args = parser.parse_args(argv[3:])
+        self.assertEqual(args.resolvedModules, os.path.abspath(resolvedPath))
+        with mock.patch("scripts.dependency.os.system"), mock.patch("scripts.dependency.downloadAndExtractDependency") as download:
+            dependency.do(args)
+        download.assert_not_called()
+        completed = subprocess.run(commands[0], shell=True, capture_output=True, text=True, timeout=30)
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertNotIn("error", completed.stderr.lower())
+        refs = xmler.load(self.path(moduleProject)).getElementsByTagName("ProjectReference")
+        self.assertIn("/Core/2.0/", refs[0].getAttribute("Include"))
+
+    def test_selected_download_receives_root_cache_context(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@Core-1.0"]})
+        resolvedPath = self.writeResolvedModules([("Udrian", "Core", "2.0")])
+        def download(selected, modulePath, context, cachePath):
+            self.makeModule(selected.name, selected.version)
+
+        with mock.patch("scripts.dependency.os.system"), \
+                mock.patch("scripts.dependency.downloadAndExtractDependency", side_effect=download) as fetch:
+            dependency.do(argparse.Namespace(projectPath=self.proj, cachePath=self.cache))
+        selected, modulePath, context, cachePath = fetch.call_args.args
+        self.assertEqual(selected.version, "2.0")
+        self.assertEqual(modulePath, "{}/Udrian/Core/2.0".format(self.cache))
+        self.assertEqual(context, os.path.abspath(resolvedPath))
+        self.assertEqual(cachePath, self.cache)
+        self.assertEqual(self.refs("Foo"), ["Core"])
+
+    def test_cycles_are_resolved_once_per_module(self):
+        self.makeModule("A", "2.0", dependencies=["Udrian@B-1.0"])
+        self.makeModule("B", "2.0", dependencies=["Udrian@A-1.0"])
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@A-1.0"]})
+        self.writeResolvedModules([("Udrian", "A", "2.0"), ("Udrian", "B", "2.0")])
+        _, download = self.run_do()
+        download.assert_not_called()
+        self.assertEqual(self.refs("Foo"), ["A"])
+        for name, other in (("A", "B"), ("B", "A")):
+            refs = xmler.load(self.path("cache/Udrian/{}/2.0/{}/{}.csproj".format(name, name, name))).getElementsByTagName("ProjectReference")
+            self.assertIn("/{}/2.0/".format(other), refs[0].getAttribute("Include"))
+
+    def test_conflicting_cache_versions_fail_before_changing_project(self):
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@Core-1.0"]})
+        self.writeResolvedModules([("Udrian", "Core", "1.0"), ("Udrian", "Core", "2.0")])
+        before = self.read("proj/Foo/Foo.csproj")
+        with self.assertRaisesRegex(ValueError, "Conflicting resolved versions"):
+            self.run_do()
+        self.assertEqual(self.read("proj/Foo/Foo.csproj"), before)
+
+    def test_explicit_missing_resolution_cache_fails(self):
+        with self.assertRaises(FileNotFoundError):
+            dependency.do(argparse.Namespace(projectPath=self.proj, cachePath=self.cache,
+                                            resolvedModules=self.path("missing.json")))
+
 
 class DownloadTests(TempDirTestCase):
     def fakeDownload(self, url, destination):
@@ -398,6 +523,19 @@ class DownloadTests(TempDirTestCase):
                 mock.patch("scripts.dependency.os.system"):
             dependency.downloadAndExtractDependency(dep("Udrian@TypeOCore-0.1.0"), self.path("c", "TypeOCore", "0.1.0"))
         self.assertEqual(os.getcwd(), before)
+
+    def test_project_context_bootstraps_with_main_typer_without_module_submodule(self):
+        target = self.path("cache with spaces", "TypeOCore", "0.1.0")
+        resolvedPath = self.path("project with spaces", "TypeO", "cache", "modules.json")
+        with mock.patch("scripts.dependency.urllib.request.urlretrieve", side_effect=self.fakeDownload), \
+                mock.patch("scripts.dependency.os.system") as system, \
+                mock.patch("scripts.dependency.subprocess.run") as run:
+            dependency.downloadAndExtractDependency(dep("Udrian@TypeOCore-0.1.0"), target, resolvedPath, self.tmp)
+        system.assert_not_called()
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[1], os.path.join(os.path.dirname(os.path.dirname(dependency.__file__)), "typer.py"))
+        self.assertEqual(argv[2:], ["generate", "-p", target, "-c", self.tmp, "--resolvedModules", resolvedPath])
+        self.assertTrue(run.call_args.kwargs["check"])
 
 
 if __name__ == "__main__":
