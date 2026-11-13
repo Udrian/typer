@@ -132,6 +132,10 @@ def resolveProject(args, resolvedPath, resolvedModules, visited):
         for modules in expectedModules.values()
         for include in modules.values()
     }
+    expectedSolutionProjects.update({
+        sub.name: os.path.abspath(os.path.join(args.projectPath, sub.csprojPath))
+        for sub in project.projects
+    })
     syncSolution(slnPath, expectedSolutionProjects, modulecachepath, removedIncludes - stillUsed)
 
 def syncSolution(slnPath, expectedProjects, modulecachepath, removedProjects=()):

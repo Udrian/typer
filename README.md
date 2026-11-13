@@ -24,6 +24,8 @@ and NuGet versions remain unchanged. Solution entries are reconciled against the
 resolved project references, repairing stale entries even if an earlier run updated a
 csproj without updating its solution. Local selections use a `;local` version suffix.
 Without that cache, module versions retain the manifest/override behavior.
+Reconciliation also keeps or restores every project declared by the solution's
+own `typeo.json`, including main, dev and test projects inside `ModulesCache`.
 
 The cache context is passed to module generation and pre-build resolution using
 `--resolvedModules <path>`, also accepted by `generate`. Those pre-build hooks invoke

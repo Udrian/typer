@@ -299,14 +299,15 @@ class DoTests(TempDirTestCase):
         solution = self.write("proj/Foo.slnx", "<Solution />")
         self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore", "Other"])
-        self.assertEqual(len(xmler.load(solution).getElementsByTagName("Project")), 2)
+        self.assertEqual(len(xmler.load(solution).getElementsByTagName("Project")), 3)
 
         self.writeTypeO("proj", {"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})
         system, _ = self.run_do()
         self.assertEqual(self.refs("Foo"), ["TypeOCore"])
         solutionPaths = [p.getAttribute("Path") for p in xmler.load(solution).getElementsByTagName("Project")]
-        self.assertEqual(len(solutionPaths), 1)
-        self.assertIn("/TypeOCore/0.1.0.dev/", solutionPaths[0])
+        self.assertEqual(len(solutionPaths), 2)
+        self.assertTrue(any("/TypeOCore/0.1.0.dev/" in path for path in solutionPaths))
+        self.assertTrue(any(path.endswith("/Foo/Foo.csproj") for path in solutionPaths))
         system.assert_not_called()
 
     def test_removing_all_dependencies_removes_the_module_group(self):
@@ -423,9 +424,33 @@ class DoTests(TempDirTestCase):
                                             resolvedModules=resolvedPath))
 
         solutionProjects = [p.getAttribute("Path") for p in xmler.load(solution).getElementsByTagName("Project")]
-        self.assertEqual(solutionProjects, [newProject.replace("\\", "/")])
+        self.assertEqual(set(solutionProjects), {
+            newProject.replace("\\", "/"),
+            self.path(project, "Foo", "Foo.csproj").replace("\\", "/")
+        })
         system.assert_not_called()
         download.assert_not_called()
+
+    def test_cached_module_solution_keeps_and_restores_its_own_projects(self):
+        self.makeModule("Core", "2.0")
+        self.makeModule("Top", "1.0", devName="TopDev", dependencies=["Udrian@Core-1.0"])
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@Top-1.0"]})
+        self.writeResolvedModules([("Udrian", "Core", "2.0"), ("Udrian", "Top", "1.0")])
+        solution = self.write("cache/Udrian/Top/1.0/Top.slnx", """<Solution>
+  <Folder Name="/Module/">
+    <Project Path="Top/Top.csproj" Build="false"/>
+  </Folder>
+</Solution>""")
+
+        for _ in range(2):
+            self.run_do()
+            xml = xmler.load(solution)
+            projects = {os.path.basename(p.getAttribute("Path")).removesuffix(".csproj"): p
+                        for p in xml.getElementsByTagName("Project")}
+            self.assertEqual(set(projects), {"Top", "TopDev", "Core"})
+            self.assertEqual(projects["Top"].parentNode.tagName, "Folder")
+            self.assertEqual(projects["Top"].getAttribute("Build"), "false")
+            self.assertIn("/Core/2.0/", projects["Core"].getAttribute("Path"))
 
     def test_selected_versions_preserve_dependency_tags_and_nuget_versions(self):
         self.makeModule("Core", "2.0", devName="CoreDev")
