@@ -116,7 +116,7 @@ def createProjectAndSolution(project):
         if not cmd.exist("dotnet sln {} list".format(slnFile), sub.csprojPath):
             cmd.exec("dotnet sln {} add {}".format(slnFile, sub.csprojPath))
 
-def addDefaultVar(csProjXML, sub):
+def addDefaultVar(csProjXML, project, sub):
     propertyGroup = xmler.getElementWithName(csProjXML, "PropertyGroup")
     
     # Clear all PropertyGroup children
@@ -126,6 +126,10 @@ def addDefaultVar(csProjXML, sub):
     # Add standard properties
     xmler.createElement(csProjXML, propertyGroup, "TargetFramework", "net10.0")
     xmler.createElement(csProjXML, propertyGroup, "ImplicitUsings", "enable")
+
+    # Stamp the assemblies with the typeo.json version (shown e.g. in TypeDitor's About dialog)
+    if "Version" not in sub.propertyGroup and product.isReleaseVersion(project.version):
+        xmler.createElement(csProjXML, propertyGroup, "Version", project.version)
     
     # Apply project-specific PropertyGroup settings
     for key, value in sub.propertyGroup.items():
@@ -375,10 +379,10 @@ def do(args):
         csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
         csProjXML = xmler.load(csPath)
         if sub.type == "":
-            addDefaultVar(csProjXML, sub)
+            addDefaultVar(csProjXML, project, sub)
             addPreBuildEvents(csProjXML)
         else:
-            addDefaultVar(csProjXML, sub)
+            addDefaultVar(csProjXML, project, sub)
         addPackageReferences(csProjXML, sub)
         addUsingStatements(csProjXML, sub)
         addExternals(csProjXML, project, sub.type == "dev", sub.type == "test")

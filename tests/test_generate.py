@@ -20,18 +20,46 @@ class ParseTests(unittest.TestCase):
 
 
 class CsProjEditingTests(unittest.TestCase):
+    def project(self, version="1.2.0", propertyGroup=None):
+        data = {"name": "Foo", "version": version}
+        if propertyGroup is not None:
+            data["project"] = [{"Name": "Foo", "propertyGroup": propertyGroup}]
+        return makeProject(".", data)
+
     def test_add_default_var_enables_documentation_and_removes_nullable(self):
         xml = parseXml()
-        generate.addDefaultVar(xml)
+        project = self.project()
+        generate.addDefaultVar(xml, project, project.projects[0])
         self.assertEqual(xml.getElementsByTagName("GenerateDocumentationFile")[0].firstChild.data, "true")
         self.assertEqual(xml.getElementsByTagName("Nullable"), [])
         self.assertEqual(len(xml.getElementsByTagName("TargetFramework")), 1)
 
     def test_add_default_var_is_idempotent(self):
         xml = parseXml()
-        generate.addDefaultVar(xml)
-        generate.addDefaultVar(xml)
+        project = self.project()
+        generate.addDefaultVar(xml, project, project.projects[0])
+        generate.addDefaultVar(xml, project, project.projects[0])
         self.assertEqual(len(xml.getElementsByTagName("GenerateDocumentationFile")), 1)
+        self.assertEqual(len(xml.getElementsByTagName("Version")), 1)
+
+    def test_add_default_var_stamps_version_from_typeo(self):
+        xml = parseXml()
+        project = self.project(version="1.2.0")
+        generate.addDefaultVar(xml, project, project.projects[0])
+        self.assertEqual(xml.getElementsByTagName("Version")[0].firstChild.data, "1.2.0")
+
+    def test_add_default_var_skips_version_for_branch_builds(self):
+        xml = parseXml()
+        project = self.project(version="1.0.0.dev")
+        generate.addDefaultVar(xml, project, project.projects[0])
+        self.assertEqual(xml.getElementsByTagName("Version"), [])
+
+    def test_add_default_var_respects_version_override(self):
+        xml = parseXml()
+        project = self.project(propertyGroup={"Version": "9.9.9"})
+        generate.addDefaultVar(xml, project, project.projects[0])
+        versions = xml.getElementsByTagName("Version")
+        self.assertEqual([v.firstChild.data for v in versions], ["9.9.9"])
 
     def test_add_pre_build_events_adds_windows_and_unix_commands(self):
         xml = parseXml()

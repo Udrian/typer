@@ -179,6 +179,10 @@ def writeOverrides(projectPath, overrides):
 def versionKey(version):
     return tuple(int(n) for n in re.findall(r"\d+", version))
 
+def isReleaseVersion(version):
+    """True for plain numeric versions that MSBuild accepts as an assembly version, unlike branch tags such as '1.0.0.feature'."""
+    return bool(version) and re.fullmatch(r"\d+(\.\d+)*", version) is not None
+
 def latestVersion(versions):
     """Returns the highest plain release version, ignoring branch tags such as '1.0.0.feature'."""
     releases = [v for v in versions if re.fullmatch(r"\d+(\.\d+)*", v)]

@@ -21,6 +21,47 @@ class ParseTests(unittest.TestCase):
                 p.parse_args([])
 
 
+class SyncProjectVersionTests(TempDirTestCase):
+    def makeProject(self, version="1.2.0", propertyGroup=None):
+        data = {"name": "Foo", "version": version}
+        if propertyGroup is not None:
+            data["project"] = [{"Name": "Foo", "propertyGroup": propertyGroup}]
+        return product.Product(data, self.tmp)
+
+    def versions(self, csPath):
+        return [v.firstChild.data for v in xmler.load(csPath).getElementsByTagName("Version")]
+
+    def test_adds_missing_version(self):
+        csPath = self.write("Foo/Foo.csproj", CSPROJ)
+        project = self.makeProject()
+        dependency.syncProjectVersion(csPath, project, project.projects[0])
+        self.assertEqual(self.versions(csPath), ["1.2.0"])
+
+    def test_updates_stale_version(self):
+        csPath = self.write("Foo/Foo.csproj", CSPROJ.replace(
+            "<Nullable>enable</Nullable>", "<Version>1.0.0</Version>"))
+        project = self.makeProject()
+        dependency.syncProjectVersion(csPath, project, project.projects[0])
+        self.assertEqual(self.versions(csPath), ["1.2.0"])
+
+    def test_matching_version_leaves_file_untouched(self):
+        content = CSPROJ.replace("<Nullable>enable</Nullable>", "<Version>1.2.0</Version>")
+        csPath = self.write("Foo/Foo.csproj", content)
+        project = self.makeProject()
+        dependency.syncProjectVersion(csPath, project, project.projects[0])
+        self.assertEqual(self.read("Foo/Foo.csproj"), content)
+
+    def test_skips_branch_versions_and_overrides(self):
+        csPath = self.write("Foo/Foo.csproj", CSPROJ)
+        project = self.makeProject(version="1.0.0.dev")
+        dependency.syncProjectVersion(csPath, project, project.projects[0])
+        self.assertEqual(self.versions(csPath), [])
+
+        project = self.makeProject(propertyGroup={"Version": "9.9.9"})
+        dependency.syncProjectVersion(csPath, project, project.projects[0])
+        self.assertEqual(self.versions(csPath), [])
+
+
 class ManipulateProjectTests(unittest.TestCase):
     def call(self, dependency_, projectType=""):
         xml = parseXml()

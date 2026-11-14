@@ -122,6 +122,7 @@ def resolveProject(args, resolvedPath, resolvedModules, visited):
     removedIncludes = set()
     for sub in project.projects:
         csPath = "{}/{}".format(args.projectPath, sub.csprojPath)
+        syncProjectVersion(csPath, project, sub)
         removedIncludes |= removeStaleDependencies(csPath, expectedModules[sub.name], expectedNugets[sub.name])
         if resolvedPath is not None:
             updateResolutionHook(csPath, args.projectPath, modulecachepath, resolvedPath)
@@ -216,6 +217,23 @@ def syncSolution(slnPath, expectedProjects, modulecachepath, removedProjects=())
         if name not in present:
             subprocess.run(["dotnet", "sln", solutionPath, "add", os.path.abspath(path)],
                            check=True, cwd=solutionDirectory)
+
+def syncProjectVersion(csPath, project, sub):
+    """Keeps the csproj Version in sync with the typeo.json version, since generate only runs on fresh checkouts."""
+    if "Version" in sub.propertyGroup or not product.isReleaseVersion(project.version) or not os.path.isfile(csPath):
+        return
+    csProjXML = xmler.load(csPath)
+    propertyGroups = csProjXML.getElementsByTagName("PropertyGroup")
+    if not propertyGroups:
+        return
+    versions = propertyGroups[0].getElementsByTagName("Version")
+    if versions:
+        if versions[0].firstChild.data == project.version:
+            return
+        versions[0].firstChild.data = project.version
+    else:
+        xmler.createElement(csProjXML, propertyGroups[0], "Version", project.version)
+    xmler.save(csProjXML, csPath)
 
 def updateResolutionHook(csPath, projectPath, cachePath, resolvedPath):
     """Keep module pre-build resolution on this TypeR and the root project's selected versions."""
