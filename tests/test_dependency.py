@@ -215,6 +215,13 @@ class DoTests(TempDirTestCase):
         include = xmler.load(self.path("proj/Foo/Foo.csproj")).getElementsByTagName("ProjectReference")[0].getAttribute("Include")
         self.assertEqual(include, "{}/Udrian/TypeOCore/0.1.0.dev/TypeOCore/TypeOCore.csproj".format(self.cache))
 
+    def test_cached_module_version_is_synced(self):
+        self.makeModule("TypeOCore", "0.1.0")
+        self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0"]})
+        self.run_do()
+        xml = xmler.load(self.path("cache/Udrian/TypeOCore/0.1.0/TypeOCore/TypeOCore.csproj"))
+        self.assertEqual([v.firstChild.data for v in xml.getElementsByTagName("Version")], ["0.1.0"])
+
     def test_second_run_does_not_duplicate(self):
         self.makeModule("TypeOCore", "0.1.0.dev")
         self.makeProject({"name": "Foo", "version": "1", "dependencies": ["Udrian@TypeOCore-0.1.0.dev"]})

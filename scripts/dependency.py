@@ -91,6 +91,15 @@ def resolveProject(args, resolvedPath, resolvedModules, visited):
             moduleArgs.projectPath = localModulePath
             moduleArgs.cachePath = modulecachepath
             resolveProject(moduleArgs, resolvedPath, resolvedModules, visited)
+        elif not dependency.nuget and os.path.isfile("{}/typeo.json".format(localModulePath)):
+            # Modules cached before versions were stamped into csproj files still need their Version synced
+            try:
+                moduleProduct = product.load(localModulePath)
+            except (KeyError, ValueError):
+                moduleProduct = None
+            if moduleProduct is not None:
+                for moduleSub in moduleProduct.projects:
+                    syncProjectVersion("{}/{}".format(localModulePath, moduleSub.csprojPath), moduleProduct, moduleSub)
         
         localModuleProjectPath = "{0}/{1}/{1}.csproj".format(localModulePath, dependency.name)
 
