@@ -3,6 +3,7 @@ import requests
 import json
 import os
 from datetime import datetime
+from pathlib import Path
  
 def parse(parser):
     parser.add_argument('-a', '--authorName',  type=str, required=True, help="Name of author")
@@ -28,6 +29,7 @@ def fetch(author, project):
     data = json.loads(response.content)
 
     result = [{"version": version["name"], "zip": version["zipball_url"]} for version in data]
+    Path(cachepath).parent.mkdir(parents=True, exist_ok=True)
     with open(cachepath, "w+") as cachefile:
         json.dump({"timestamp": datetime.now().timestamp(), "cache": result}, cachefile)
     return result
