@@ -48,7 +48,7 @@ def addExtraFiles(args):
     
     dependencies = args.dependencies.split()
     if len(dependencies) == 0:
-        dependencies.append("Udrian@TypeOCore-0.1.0")
+        dependencies.append("Udrian@TypeOCore-1.0.0")
     
     product = {
         "name": args.name,
