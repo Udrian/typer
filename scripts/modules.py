@@ -20,9 +20,9 @@ def modules(registryPath, extraRepositories):
     retval = []
     for entry in entries:
         delimiter = ""
-        if entry.find('/'):
+        if entry.find('/') != -1:
             delimiter = "/"
-        elif entry.find('@'):
+        elif entry.find('@') != -1:
             delimiter = "@"
         if(delimiter == ""):
             continue
